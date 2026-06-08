@@ -88,6 +88,30 @@ describe('installedAppPickerUtils', () => {
     ])
   })
 
+  it('preserves icon data when converting candidates to tracked app inputs', () => {
+    expect(
+      toTrackedAppInputs(
+        [
+          {
+            ...candidates[1],
+            iconDataUrl: 'data:image/png;base64,notion'
+          }
+        ],
+        trackedApps,
+        30,
+        true
+      )
+    ).toEqual([
+      {
+        name: 'Notion',
+        processName: 'notion',
+        dailyLimitMinutes: 30,
+        notificationEnabled: true,
+        iconDataUrl: 'data:image/png;base64,notion'
+      }
+    ])
+  })
+
   it('returns image icon presentation when icon data is available', () => {
     expect(
       getCandidateIconPresentation({

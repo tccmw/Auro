@@ -30,7 +30,8 @@ export function AppForm({ editingApp, onCancelEdit, onCreate, onUpdate }: AppFor
       name: editingApp.name,
       processName: editingApp.processName,
       dailyLimitMinutes: editingApp.dailyLimitMinutes,
-      notificationEnabled: editingApp.notificationEnabled
+      notificationEnabled: editingApp.notificationEnabled,
+      iconDataUrl: editingApp.iconDataUrl
     })
   }, [editingApp])
 
@@ -75,7 +76,7 @@ export function AppForm({ editingApp, onCancelEdit, onCreate, onUpdate }: AppFor
           />
         </label>
         <label>
-          <span>일일 제한</span>
+          <span>일일 제한(분)</span>
           <input
             min={1}
             type="number"

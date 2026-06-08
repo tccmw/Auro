@@ -83,12 +83,20 @@ export function toTrackedAppInputs(
 ): TrackedAppInput[] {
   return candidates
     .filter((candidate) => !isCandidateRegistered(candidate, trackedApps))
-    .map((candidate) => ({
-      name: candidate.name,
-      processName: candidate.processName,
-      dailyLimitMinutes,
-      notificationEnabled
-    }))
+    .map((candidate) => {
+      const input: TrackedAppInput = {
+        name: candidate.name,
+        processName: candidate.processName,
+        dailyLimitMinutes,
+        notificationEnabled
+      }
+
+      if (candidate.iconDataUrl) {
+        input.iconDataUrl = candidate.iconDataUrl
+      }
+
+      return input
+    })
 }
 
 export function getCandidateIconPresentation(

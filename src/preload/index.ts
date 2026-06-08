@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/ipc'
 import type {
+  AuroApi,
   InstalledAppCandidate,
-  LimitoApi,
   NotificationHistory,
   SettingsUpdatePayload,
   TrackingStatusPayload,
@@ -21,7 +21,7 @@ function subscribe<T>(channel: string, callback: (payload: T) => void): () => vo
   }
 }
 
-const api: LimitoApi = {
+const api: AuroApi = {
   listInstalledApps: async () => {
     return ipcRenderer.invoke(IPC_CHANNELS.INSTALLED_APPS_LIST) as Promise<InstalledAppCandidate[]>
   },
@@ -34,4 +34,5 @@ const api: LimitoApi = {
   onTrackingStatus: (callback) => subscribe<TrackingStatusPayload>(IPC_CHANNELS.TRACKING_STATUS, callback)
 }
 
+contextBridge.exposeInMainWorld('auroApi', api)
 contextBridge.exposeInMainWorld('limitoApi', api)

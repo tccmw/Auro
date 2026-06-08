@@ -1,10 +1,11 @@
 /// <reference types="vite/client" />
 
-import type { LimitoApi } from '../shared/types'
+import type { AuroApi } from '../shared/types'
 
 declare global {
   interface Window {
-    limitoApi?: LimitoApi
+    auroApi?: AuroApi
+    limitoApi?: AuroApi
   }
 }
 

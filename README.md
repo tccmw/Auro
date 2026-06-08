@@ -1,4 +1,4 @@
-# Desktop App Usage Tracker
+# Auro Desktop Focus Tracker
 
 Electron + React + TypeScript 기반의 데스크톱 생산성 관리 앱입니다. 사용자가 등록한 데스크톱 앱의 실행 상태를 감지하고, 앱별 사용 시간을 일간 단위로 누적하며, 사용자가 설정한 제한 시간을 초과하면 데스크톱 알림을 제공합니다.
 

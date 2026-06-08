@@ -6,6 +6,7 @@ export interface TrackedApp {
   processName: string
   dailyLimitMinutes: number
   notificationEnabled: boolean
+  iconDataUrl?: string
 }
 
 export type InstalledAppSource = 'start-menu' | 'registry'
@@ -55,10 +56,12 @@ export interface TrackingStatusPayload {
   error?: string
 }
 
-export interface LimitoApi {
+export interface AuroApi {
   listInstalledApps: () => Promise<InstalledAppCandidate[]>
   updateSettings: (payload: SettingsUpdatePayload) => Promise<void>
   onUsageUpdate: (callback: (payload: UsageUpdatePayload) => void) => () => void
   onNotificationSent: (callback: (payload: NotificationHistory) => void) => () => void
   onTrackingStatus: (callback: (payload: TrackingStatusPayload) => void) => () => void
 }
+
+export type LimitoApi = AuroApi

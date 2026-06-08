@@ -17,6 +17,18 @@ interface InstalledAppPickerProps {
   onUpdateApp: (appId: string, updates: Partial<TrackedAppInput>) => void
 }
 
+function getSourceLabel(candidate: InstalledAppCandidate, registeredApp?: TrackedApp, pending = false): string {
+  if (registeredApp) {
+    return '추적 중'
+  }
+
+  if (pending) {
+    return '추가 예정'
+  }
+
+  return candidate.source === 'start-menu' ? '시작 메뉴' : '설치 목록'
+}
+
 export function InstalledAppPicker({
   trackedApps,
   onAddApps,
@@ -32,8 +44,10 @@ export function InstalledAppPicker({
   const [error, setError] = useState<string | null>(null)
 
   const loadInstalledApps = async (): Promise<void> => {
-    if (!window.limitoApi) {
-      setError('Electron API를 찾을 수 없습니다.')
+    const api = window.auroApi ?? window.limitoApi
+
+    if (!api) {
+      setError('Auro 데스크톱 API를 찾을 수 없습니다.')
       return
     }
 
@@ -41,7 +55,7 @@ export function InstalledAppPicker({
     setError(null)
 
     try {
-      const installedApps = await window.limitoApi.listInstalledApps()
+      const installedApps = await api.listInstalledApps()
       setCandidates(installedApps)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : String(loadError))
@@ -92,13 +106,29 @@ export function InstalledAppPicker({
 
   return (
     <div className="installed-app-picker">
+      <div className="picker-intro">
+        <div>
+          <h3>설치된 앱에서 선택</h3>
+          <p>검색 후 체크하면 기본 제한과 알림 설정이 함께 적용됩니다.</p>
+        </div>
+        <button
+          type="button"
+          className="ghost-button compact-button"
+          onClick={() => void loadInstalledApps()}
+          disabled={loading}
+        >
+          <RefreshCw size={16} />
+          <span>새로고침</span>
+        </button>
+      </div>
+
       <div className="picker-toolbar">
         <label className="search-field">
           <Search size={17} />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="앱 검색"
+            placeholder="앱 이름, 프로세스, 게시자 검색"
           />
         </label>
         <label className="compact-field">
@@ -120,10 +150,6 @@ export function InstalledAppPicker({
           {notificationEnabled ? <Bell size={18} /> : <BellOff size={18} />}
           <span>{notificationEnabled ? '알림 켜짐' : '알림 꺼짐'}</span>
         </button>
-        <button type="button" className="ghost-button" onClick={() => void loadInstalledApps()}>
-          <RefreshCw size={16} />
-          <span>새로고침</span>
-        </button>
       </div>
 
       <div className="picker-summary">
@@ -135,7 +161,13 @@ export function InstalledAppPicker({
 
       <div className="candidate-list" aria-busy={loading}>
         {loading ? (
-          <div className="empty-state compact">앱 목록을 읽는 중입니다.</div>
+          <div className="loading-panel" role="status" aria-live="polite">
+            <span className="loading-spinner" aria-hidden="true" />
+            <div>
+              <strong>설치된 앱을 찾고 있습니다.</strong>
+              <p>시작 메뉴와 설치 목록을 확인하는 중입니다.</p>
+            </div>
+          </div>
         ) : sortedCandidates.length === 0 ? (
           <div className="empty-state compact">표시할 앱이 없습니다.</div>
         ) : (
@@ -172,9 +204,9 @@ export function InstalledAppPicker({
                   </small>
                 </span>
                 {registeredApp ? (
-                  <label className="candidate-limit-field" onClick={(event) => event.stopPropagation()}>
-                    <span>분</span>
+                  <span className="candidate-limit-field" onClick={(event) => event.stopPropagation()}>
                     <input
+                      aria-label={`${candidate.name} 일일 제한`}
                       min={1}
                       type="number"
                       value={registeredApp.dailyLimitMinutes}
@@ -184,17 +216,10 @@ export function InstalledAppPicker({
                         })
                       }
                     />
-                  </label>
+                    <span>분</span>
+                  </span>
                 ) : null}
-                <span className="candidate-source">
-                  {registeredApp
-                    ? '추적 중'
-                    : pending
-                      ? '추가 예정'
-                      : candidate.source === 'start-menu'
-                        ? '시작 메뉴'
-                        : '설치 목록'}
-                </span>
+                <span className="candidate-source">{getSourceLabel(candidate, registeredApp, pending)}</span>
               </label>
             )
           })
@@ -202,6 +227,7 @@ export function InstalledAppPicker({
       </div>
 
       <div className="picker-actions">
+        <span>{addableInputs.length > 0 ? '선택한 앱을 추적 목록에 추가합니다.' : '추가할 앱을 선택하세요.'}</span>
         <button
           type="button"
           className="primary-button"
