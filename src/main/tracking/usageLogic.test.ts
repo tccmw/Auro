@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackedApp } from '../../shared/types'
 import {
+  createNotificationHistory,
   hasNotificationBeenSent,
   incrementUsageSeconds,
   isLimitReached,
@@ -48,6 +49,16 @@ describe('usageLogic', () => {
         date: '2026-06-02'
       })
     ).toBe(false)
+  })
+
+  it('creates notification history with an app name snapshot', () => {
+    expect(createNotificationHistory(app, '2026-06-02', new Date('2026-06-02T01:00:00.000Z'))).toEqual({
+      id: 'chrome:2026-06-02',
+      appId: 'chrome',
+      appName: 'Chrome',
+      date: '2026-06-02',
+      sentAt: '2026-06-02T01:00:00.000Z'
+    })
   })
 
   it('respects global and per-app notification toggles', () => {

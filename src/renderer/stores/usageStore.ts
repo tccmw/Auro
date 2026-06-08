@@ -16,6 +16,8 @@ import {
   type PersistedLimitoState
 } from '../storage/persistedState'
 
+export const USAGE_STORE_PERSIST_VERSION = 1
+
 export interface TrackedAppInput {
   name: string
   processName: string
@@ -77,6 +79,41 @@ export function createTrackedAppsFromInputs(
   }
 
   return apps
+}
+
+export function backfillNotificationAppNames(
+  notifications: NotificationHistory[],
+  trackedApps: TrackedApp[]
+): NotificationHistory[] {
+  return notifications.map((notification) => {
+    if (notification.appName) {
+      return notification
+    }
+
+    const app = trackedApps.find((trackedApp) => trackedApp.id === notification.appId)
+
+    return app ? { ...notification, appName: app.name } : notification
+  })
+}
+
+export function createInitialPersistedState(): PersistedLimitoState {
+  return {
+    trackedApps: [],
+    usageTimes: {},
+    settings: DEFAULT_SETTINGS,
+    notifications: []
+  }
+}
+
+export function migratePersistedState(
+  persistedState: unknown,
+  version: number
+): PersistedLimitoState {
+  if (version < USAGE_STORE_PERSIST_VERSION) {
+    return createInitialPersistedState()
+  }
+
+  return persistedState as PersistedLimitoState
 }
 
 function syncPayloadFromState(state: UsageStore): PersistedLimitoState {
@@ -144,7 +181,8 @@ export const useUsageStore = create<UsageStore>()(
       },
       removeTrackedApp: (appId) => {
         set((state) => ({
-          trackedApps: state.trackedApps.filter((app) => app.id !== appId)
+          trackedApps: state.trackedApps.filter((app) => app.id !== appId),
+          notifications: backfillNotificationAppNames(state.notifications, state.trackedApps)
         }))
         void get().hydrateMainProcessSettings()
       },
@@ -168,7 +206,13 @@ export const useUsageStore = create<UsageStore>()(
       addNotification: (notification) => {
         set((state) => {
           if (state.notifications.some((item) => item.id === notification.id)) {
-            return state
+            return {
+              notifications: state.notifications.map((item) =>
+                item.id === notification.id && !item.appName && notification.appName
+                  ? { ...item, appName: notification.appName }
+                  : item
+              )
+            }
           }
 
           return {
@@ -185,7 +229,21 @@ export const useUsageStore = create<UsageStore>()(
     }),
     {
       name: STORE_STORAGE_KEY,
+      version: USAGE_STORE_PERSIST_VERSION,
       storage: createLimitoPersistStorage(),
+      migrate: (persistedState, version) => migratePersistedState(persistedState, version),
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as Partial<PersistedLimitoState>
+        const trackedApps = persisted.trackedApps ?? currentState.trackedApps
+        const notifications = persisted.notifications ?? currentState.notifications
+
+        return {
+          ...currentState,
+          ...persisted,
+          trackedApps,
+          notifications: backfillNotificationAppNames(notifications, trackedApps)
+        }
+      },
       partialize: (state) => syncPayloadFromState(state),
       onRehydrateStorage: () => (state) => {
         if (state) {
