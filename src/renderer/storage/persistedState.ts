@@ -2,7 +2,8 @@ import type { PersistStorage, StorageValue } from 'zustand/middleware'
 import { sanitizeSettings } from '../../shared/defaults'
 import type { AppSettings, NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
 
-export const STORE_STORAGE_KEY = 'limito-usage-store'
+export const STORE_STORAGE_KEY = 'auro-usage-store'
+export const LEGACY_STORE_STORAGE_KEY = 'limito-usage-store'
 
 export interface PersistedLimitoState {
   trackedApps: TrackedApp[]
@@ -51,7 +52,7 @@ function sanitizeTrackedApp(value: unknown): TrackedApp | null {
     return null
   }
 
-  return {
+  const app: TrackedApp = {
     id: value.id,
     name: value.name,
     processName: value.processName,
@@ -59,6 +60,12 @@ function sanitizeTrackedApp(value: unknown): TrackedApp | null {
     notificationEnabled:
       typeof value.notificationEnabled === 'boolean' ? value.notificationEnabled : true
   }
+
+  if (typeof value.iconDataUrl === 'string') {
+    app.iconDataUrl = value.iconDataUrl
+  }
+
+  return app
 }
 
 function sanitizeUsageTimes(value: unknown): UsageTimes {
@@ -130,12 +137,18 @@ function getBrowserStorage(): StringStorage {
   return createMemoryStorage()
 }
 
-export function createLimitoPersistStorage(
+export function createAuroPersistStorage(
   storage: StringStorage = getBrowserStorage()
 ): PersistStorage<PersistedLimitoState> {
   return {
     getItem: (name) => {
-      const rawValue = storage.getItem(name)
+      let rawValue = storage.getItem(name)
+      let sourceKey = name
+
+      if (!rawValue && name === STORE_STORAGE_KEY) {
+        rawValue = storage.getItem(LEGACY_STORE_STORAGE_KEY)
+        sourceKey = LEGACY_STORE_STORAGE_KEY
+      }
 
       if (!rawValue) {
         return null
@@ -144,12 +157,17 @@ export function createLimitoPersistStorage(
       try {
         const parsed = JSON.parse(rawValue) as StorageValue<PersistedLimitoState>
 
+        if (sourceKey === LEGACY_STORE_STORAGE_KEY) {
+          storage.setItem(name, rawValue)
+          storage.removeItem(LEGACY_STORE_STORAGE_KEY)
+        }
+
         return {
           state: sanitizePersistedState(parsed.state),
           version: parsed.version
         }
       } catch {
-        storage.removeItem(name)
+        storage.removeItem(sourceKey)
         return null
       }
     },
@@ -161,3 +179,5 @@ export function createLimitoPersistStorage(
     }
   }
 }
+
+export const createLimitoPersistStorage = createAuroPersistStorage

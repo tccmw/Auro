@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   createLimitoPersistStorage,
+  LEGACY_STORE_STORAGE_KEY,
   sanitizePersistedState,
   STORE_STORAGE_KEY,
   type StringStorage
 } from './persistedState'
 
-function createTestStorage(initialValue?: string): StringStorage {
+function createTestStorage(initialValue?: string, initialKey = STORE_STORAGE_KEY): StringStorage {
   const values = new Map<string, string>()
 
   if (initialValue !== undefined) {
-    values.set(STORE_STORAGE_KEY, initialValue)
+    values.set(initialKey, initialValue)
   }
 
   return {
@@ -37,6 +38,58 @@ describe('persistedState', () => {
       settings: { trackingIntervalMs: 1000, notificationEnabled: true },
       notifications: [{ id: 'n1', appId: 'chrome', appName: 'Chrome', date: '2026-06-02', sentAt: 'x' }]
     })
+  })
+
+  it('preserves optional tracked app icon data', () => {
+    expect(
+      sanitizePersistedState({
+        trackedApps: [
+          {
+            id: 'figma',
+            name: 'Figma',
+            processName: 'figma.exe',
+            dailyLimitMinutes: 90,
+            notificationEnabled: true,
+            iconDataUrl: 'data:image/png;base64,figma'
+          }
+        ]
+      }).trackedApps
+    ).toEqual([
+      {
+        id: 'figma',
+        name: 'Figma',
+        processName: 'figma.exe',
+        dailyLimitMinutes: 90,
+        notificationEnabled: true,
+        iconDataUrl: 'data:image/png;base64,figma'
+      }
+    ])
+  })
+
+  it('migrates legacy Limito storage payloads to the Auro storage key', () => {
+    const payload = JSON.stringify({
+      state: {
+        trackedApps: [],
+        usageTimes: {},
+        settings: { trackingIntervalMs: 1000, notificationEnabled: true },
+        notifications: []
+      },
+      version: 1
+    })
+    const storage = createTestStorage(payload, LEGACY_STORE_STORAGE_KEY)
+    const persistStorage = createLimitoPersistStorage(storage)
+
+    expect(persistStorage.getItem(STORE_STORAGE_KEY)).toEqual({
+      state: {
+        trackedApps: [],
+        usageTimes: {},
+        settings: { trackingIntervalMs: 1000, notificationEnabled: true },
+        notifications: []
+      },
+      version: 1
+    })
+    expect(storage.getItem(STORE_STORAGE_KEY)).toBe(payload)
+    expect(storage.getItem(LEGACY_STORE_STORAGE_KEY)).toBeNull()
   })
 
   it('removes corrupted localStorage payloads', () => {

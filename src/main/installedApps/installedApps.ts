@@ -6,6 +6,42 @@ import type { InstalledAppCandidate, InstalledAppSource } from '../../shared/typ
 const execFileAsync = promisify(execFile)
 
 const INSTALLER_EXECUTABLE_TERMS = ['uninstall', 'unins', 'setup', 'installer', 'update']
+const WINDOWS_INSTALLED_APPS_SCRIPT = `
+$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+$items = @()
+$shortcutDirs = @([Environment]::GetFolderPath('StartMenu'), [Environment]::GetFolderPath('CommonStartMenu')) | Where-Object { $_ -and (Test-Path $_) }
+$shell = New-Object -ComObject WScript.Shell
+foreach ($dir in $shortcutDirs) {
+  Get-ChildItem -Path $dir -Recurse -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object {
+    try {
+      $shortcut = $shell.CreateShortcut($_.FullName)
+      $items += [PSCustomObject]@{
+        source = 'start-menu'
+        name = [IO.Path]::GetFileNameWithoutExtension($_.Name)
+        targetPath = $shortcut.TargetPath
+        arguments = $shortcut.Arguments
+        iconLocation = $shortcut.IconLocation
+      }
+    } catch {}
+  }
+}
+$registryPaths = @(
+  'HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
+  'HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
+  'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'
+)
+Get-ItemProperty $registryPaths -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | ForEach-Object {
+  $items += [PSCustomObject]@{
+    source = 'registry'
+    name = $_.DisplayName
+    displayIcon = $_.DisplayIcon
+    publisher = $_.Publisher
+  }
+}
+@($items) | ConvertTo-Json -Compress -Depth 3
+`
 
 interface ShortcutRawEntry {
   source: 'start-menu'
@@ -37,6 +73,10 @@ export type FileIconLoader = (
   path: string,
   options?: { size: 'small' | 'normal' | 'large' }
 ) => Promise<FileIconImage>
+
+export function encodePowerShellCommand(command: string): string {
+  return Buffer.from(command.trim(), 'utf16le').toString('base64')
+}
 
 export function normalizeExecutablePath(executablePath: string): string {
   return executablePath.trim().replace(/^"|"$/g, '').toLowerCase()
@@ -188,43 +228,9 @@ export class WindowsInstalledAppAdapter implements InstalledAppProvider {
       'powershell.exe',
       [
         '-NoProfile',
-        '-Command',
-        `
-$ErrorActionPreference = 'SilentlyContinue'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-$items = @()
-$shortcutDirs = @([Environment]::GetFolderPath('StartMenu'), [Environment]::GetFolderPath('CommonStartMenu')) | Where-Object { $_ -and (Test-Path $_) }
-$shell = New-Object -ComObject WScript.Shell
-foreach ($dir in $shortcutDirs) {
-  Get-ChildItem -Path $dir -Recurse -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object {
-    try {
-      $shortcut = $shell.CreateShortcut($_.FullName)
-      $items += [PSCustomObject]@{
-        source = 'start-menu'
-        name = [IO.Path]::GetFileNameWithoutExtension($_.Name)
-        targetPath = $shortcut.TargetPath
-        arguments = $shortcut.Arguments
-        iconLocation = $shortcut.IconLocation
-      }
-    } catch {}
-  }
-}
-$registryPaths = @(
-  'HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
-  'HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
-  'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'
-)
-Get-ItemProperty $registryPaths -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | ForEach-Object {
-  $items += [PSCustomObject]@{
-    source = 'registry'
-    name = $_.DisplayName
-    displayIcon = $_.DisplayIcon
-    publisher = $_.Publisher
-  }
-}
-@($items) | ConvertTo-Json -Compress -Depth 3
-        `
+        '-NonInteractive',
+        '-EncodedCommand',
+        encodePowerShellCommand(WINDOWS_INSTALLED_APPS_SCRIPT)
       ],
       { windowsHide: true, timeout: 10_000, maxBuffer: 4 * 1024 * 1024 }
     )

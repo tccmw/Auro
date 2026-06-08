@@ -1,17 +1,19 @@
 import { useUsageStore } from '../stores/usageStore'
 
 export function registerRendererIpc(): () => void {
-  if (!window.limitoApi) {
+  const api = window.auroApi ?? window.limitoApi
+
+  if (!api) {
     return () => undefined
   }
 
-  const unsubscribeUsage = window.limitoApi.onUsageUpdate((payload) => {
+  const unsubscribeUsage = api.onUsageUpdate((payload) => {
     useUsageStore.getState().applyUsageUpdate(payload)
   })
-  const unsubscribeNotification = window.limitoApi.onNotificationSent((payload) => {
+  const unsubscribeNotification = api.onNotificationSent((payload) => {
     useUsageStore.getState().addNotification(payload)
   })
-  const unsubscribeStatus = window.limitoApi.onTrackingStatus((payload) => {
+  const unsubscribeStatus = api.onTrackingStatus((payload) => {
     useUsageStore.getState().setTrackingStatus(payload)
   })
 

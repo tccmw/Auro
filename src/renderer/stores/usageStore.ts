@@ -11,7 +11,7 @@ import type {
   UsageUpdatePayload
 } from '../../shared/types'
 import {
-  createLimitoPersistStorage,
+  createAuroPersistStorage,
   STORE_STORAGE_KEY,
   type PersistedLimitoState
 } from '../storage/persistedState'
@@ -23,6 +23,7 @@ export interface TrackedAppInput {
   processName: string
   dailyLimitMinutes: number
   notificationEnabled: boolean
+  iconDataUrl?: string
 }
 
 export interface UsageStore extends PersistedLimitoState {
@@ -39,7 +40,7 @@ export interface UsageStore extends PersistedLimitoState {
 }
 
 function createTrackedApp(input: TrackedAppInput): TrackedApp {
-  return {
+  const app: TrackedApp = {
     id:
       typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
@@ -49,6 +50,12 @@ function createTrackedApp(input: TrackedAppInput): TrackedApp {
     dailyLimitMinutes: Math.max(1, Math.round(Number(input.dailyLimitMinutes))),
     notificationEnabled: input.notificationEnabled
   }
+
+  if (input.iconDataUrl) {
+    app.iconDataUrl = input.iconDataUrl
+  }
+
+  return app
 }
 
 export function createTrackedAppsFromInputs(
@@ -126,11 +133,13 @@ function syncPayloadFromState(state: UsageStore): PersistedLimitoState {
 }
 
 async function syncMainProcess(state: UsageStore): Promise<void> {
-  if (typeof window === 'undefined' || !window.limitoApi) {
+  const api = typeof window === 'undefined' ? undefined : window.auroApi ?? window.limitoApi
+
+  if (!api) {
     return
   }
 
-  await window.limitoApi.updateSettings(syncPayloadFromState(state))
+  await api.updateSettings(syncPayloadFromState(state))
 }
 
 export const useUsageStore = create<UsageStore>()(
@@ -172,7 +181,8 @@ export const useUsageStore = create<UsageStore>()(
                   dailyLimitMinutes:
                     updates.dailyLimitMinutes === undefined
                       ? app.dailyLimitMinutes
-                      : Math.max(1, Math.round(Number(updates.dailyLimitMinutes)))
+                      : Math.max(1, Math.round(Number(updates.dailyLimitMinutes))),
+                  iconDataUrl: updates.iconDataUrl ?? app.iconDataUrl
                 }
               : app
           )
@@ -230,7 +240,7 @@ export const useUsageStore = create<UsageStore>()(
     {
       name: STORE_STORAGE_KEY,
       version: USAGE_STORE_PERSIST_VERSION,
-      storage: createLimitoPersistStorage(),
+      storage: createAuroPersistStorage(),
       migrate: (persistedState, version) => migratePersistedState(persistedState, version),
       merge: (persistedState, currentState) => {
         const persisted = (persistedState ?? {}) as Partial<PersistedLimitoState>

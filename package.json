@@ -1,7 +1,7 @@
 {
-  "name": "limito",
+  "name": "auro",
   "version": "0.1.0",
-  "description": "Windows-first desktop app usage tracker MVP.",
+  "description": "A light-first desktop focus and app usage tracker.",
   "main": "out/main/index.js",
   "private": true,
   "scripts": {

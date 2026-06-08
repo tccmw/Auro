@@ -33,7 +33,8 @@ describe('usageStore helpers', () => {
           name: 'Notion',
           processName: 'Notion.exe',
           dailyLimitMinutes: 45,
-          notificationEnabled: true
+          notificationEnabled: true,
+          iconDataUrl: 'data:image/png;base64,notion'
         },
         {
           name: 'Notion duplicate',
@@ -50,7 +51,8 @@ describe('usageStore helpers', () => {
       name: 'Notion',
       processName: 'notion',
       dailyLimitMinutes: 45,
-      notificationEnabled: true
+      notificationEnabled: true,
+      iconDataUrl: 'data:image/png;base64,notion'
     })
   })
 

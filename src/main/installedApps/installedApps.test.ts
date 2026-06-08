@@ -4,11 +4,19 @@ import {
   createRegistryCandidate,
   createShortcutCandidate,
   dedupeInstalledAppCandidates,
+  encodePowerShellCommand,
   extractExecutablePath,
   isInstallerLikeExecutable
 } from './installedApps'
 
 describe('installedApps', () => {
+  it('encodes PowerShell scripts for EncodedCommand', () => {
+    const encoded = encodePowerShellCommand("Write-Output 'Auro'")
+    const decoded = Buffer.from(encoded, 'base64').toString('utf16le')
+
+    expect(decoded).toBe("Write-Output 'Auro'")
+  })
+
   it('extracts executable paths from DisplayIcon values', () => {
     expect(extractExecutablePath('"C:\\Program Files\\App\\App.exe",0')).toBe(
       'C:\\Program Files\\App\\App.exe'
