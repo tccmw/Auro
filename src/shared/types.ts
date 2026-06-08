@@ -31,6 +31,7 @@ export interface AppSettings {
 export interface NotificationHistory {
   id: string
   appId: string
+  appName?: string
   date: DateKey
   sentAt: string
 }

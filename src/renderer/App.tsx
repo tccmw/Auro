@@ -4,6 +4,7 @@ import { getLocalDateKey } from '../shared/date'
 import type { TrackedApp } from '../shared/types'
 import { AppForm } from './components/AppForm'
 import { InstalledAppPicker } from './components/InstalledAppPicker'
+import { getNotificationDisplayName } from './components/notificationDisplay'
 import { TrackingStatusBar } from './components/TrackingStatusBar'
 import { TrackedAppCard } from './components/TrackedAppCard'
 import { UsageDashboard } from './components/UsageDashboard'
@@ -101,11 +102,9 @@ export default function App() {
                   <div className="empty-state compact">기록 없음</div>
                 ) : (
                   recentNotifications.map((notification) => {
-                    const app = trackedApps.find((item) => item.id === notification.appId)
-
                     return (
                       <div className="notification-item" key={notification.id}>
-                        <strong>{app?.name ?? notification.appId}</strong>
+                        <strong>{getNotificationDisplayName(notification, trackedApps)}</strong>
                         <span>{notification.date}</span>
                         <time dateTime={notification.sentAt}>
                           {new Date(notification.sentAt).toLocaleTimeString('ko-KR')}

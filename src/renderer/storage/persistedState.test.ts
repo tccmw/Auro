@@ -29,13 +29,13 @@ describe('persistedState', () => {
         trackedApps: [{ id: 'bad', name: 1 }],
         usageTimes: { '2026-06-02': { chrome: '12', broken: 'nope' } },
         settings: { trackingIntervalMs: -1 },
-        notifications: [{ id: 'n1', appId: 'chrome', date: '2026-06-02', sentAt: 'x' }]
+        notifications: [{ id: 'n1', appId: 'chrome', appName: 'Chrome', date: '2026-06-02', sentAt: 'x' }]
       })
     ).toEqual({
       trackedApps: [],
       usageTimes: { '2026-06-02': { chrome: 12 } },
       settings: { trackingIntervalMs: 1000, notificationEnabled: true },
-      notifications: [{ id: 'n1', appId: 'chrome', date: '2026-06-02', sentAt: 'x' }]
+      notifications: [{ id: 'n1', appId: 'chrome', appName: 'Chrome', date: '2026-06-02', sentAt: 'x' }]
     })
   })
 

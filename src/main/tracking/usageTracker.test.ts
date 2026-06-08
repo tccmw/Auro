@@ -90,6 +90,7 @@ describe('UsageTracker', () => {
     expect(notifications[0]).toMatchObject({
       id: 'chrome:2026-06-02',
       appId: 'chrome',
+      appName: 'Chrome',
       date: '2026-06-02'
     })
   })

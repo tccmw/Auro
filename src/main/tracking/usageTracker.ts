@@ -141,7 +141,7 @@ export class UsageTracker {
 
     try {
       await this.notificationService.sendLimitNotification(app, usageSeconds)
-      const notification = createNotificationHistory(app.id, date, this.now())
+      const notification = createNotificationHistory(app, date, this.now())
       this.notifications = [...this.notifications, notification]
       this.events.emitNotificationSent(notification)
     } catch (error) {

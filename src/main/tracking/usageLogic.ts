@@ -67,10 +67,11 @@ export function shouldSendLimitNotification(input: {
   )
 }
 
-export function createNotificationHistory(appId: string, date: string, sentAt = new Date()): NotificationHistory {
+export function createNotificationHistory(app: TrackedApp, date: string, sentAt = new Date()): NotificationHistory {
   return {
-    id: `${appId}:${date}`,
-    appId,
+    id: `${app.id}:${date}`,
+    appId: app.id,
+    appName: app.name,
     date,
     sentAt: sentAt.toISOString()
   }

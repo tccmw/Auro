@@ -85,15 +85,27 @@ function sanitizeNotifications(value: unknown): NotificationHistory[] {
     return []
   }
 
-  return value.filter((notification): notification is NotificationHistory => {
-    return (
-      isRecord(notification) &&
-      typeof notification.id === 'string' &&
-      typeof notification.appId === 'string' &&
-      typeof notification.date === 'string' &&
-      typeof notification.sentAt === 'string'
-    )
-  })
+  return value
+    .map((notification): NotificationHistory | null => {
+      if (
+        !isRecord(notification) ||
+        typeof notification.id !== 'string' ||
+        typeof notification.appId !== 'string' ||
+        typeof notification.date !== 'string' ||
+        typeof notification.sentAt !== 'string'
+      ) {
+        return null
+      }
+
+      return {
+        id: notification.id,
+        appId: notification.appId,
+        appName: typeof notification.appName === 'string' ? notification.appName : undefined,
+        date: notification.date,
+        sentAt: notification.sentAt
+      }
+    })
+    .filter((notification): notification is NotificationHistory => notification !== null)
 }
 
 export function sanitizePersistedState(value: unknown): PersistedLimitoState {
