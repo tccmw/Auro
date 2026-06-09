@@ -3,7 +3,6 @@ import type { NotificationHistory, TrackedApp, UsageTimes } from '../../shared/t
 import {
   formatDuration,
   getExceededAppCount,
-  getLimitPressurePercent,
   getTodayNotificationCount,
   getTopUsedAppSummary,
   getTrackedAppUsageSummaries
@@ -34,23 +33,42 @@ const usageTimes: UsageTimes = {
 }
 
 describe('selectors', () => {
-  it('sorts tracked app summaries and calculates usage share', () => {
+  it('sorts tracked app summaries and calculates limit state', () => {
     expect(getTrackedAppUsageSummaries(apps, usageTimes, '2026-06-08')).toMatchObject([
       {
         app: apps[1],
         usageSeconds: 2100,
         percentUsed: 100,
-        sharePercent: 54,
         remainingSeconds: 0,
+        overLimitSeconds: 300,
         limitReached: true
       },
       {
         app: apps[0],
         usageSeconds: 1800,
         percentUsed: 50,
-        sharePercent: 46,
         remainingSeconds: 1800,
+        overLimitSeconds: 0,
         limitReached: false
+      }
+    ])
+  })
+
+  it('recalculates remaining time when a daily limit changes', () => {
+    const updatedApps: TrackedApp[] = [
+      {
+        ...apps[0],
+        dailyLimitMinutes: 20
+      }
+    ]
+
+    expect(getTrackedAppUsageSummaries(updatedApps, usageTimes, '2026-06-08')).toMatchObject([
+      {
+        app: updatedApps[0],
+        usageSeconds: 1800,
+        remainingSeconds: 0,
+        overLimitSeconds: 600,
+        limitReached: true
       }
     ])
   })
@@ -59,9 +77,8 @@ describe('selectors', () => {
     expect(getTopUsedAppSummary(apps, usageTimes, '2026-06-08')?.app.id).toBe('browser')
   })
 
-  it('calculates exceeded app count and total limit pressure', () => {
+  it('calculates exceeded app count', () => {
     expect(getExceededAppCount(apps, usageTimes, '2026-06-08')).toBe(1)
-    expect(getLimitPressurePercent(apps, usageTimes, '2026-06-08')).toBe(72)
   })
 
   it('counts notifications for the selected date', () => {

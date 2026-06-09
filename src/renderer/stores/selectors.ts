@@ -6,8 +6,8 @@ export interface AppUsageSummary {
   usageSeconds: number
   limitSeconds: number
   percentUsed: number
-  sharePercent: number
   remainingSeconds: number
+  overLimitSeconds: number
   limitReached: boolean
 }
 
@@ -15,18 +15,17 @@ export function getUsageForDate(usageTimes: UsageTimes, date = getLocalDateKey()
   return usageTimes[date] ?? {}
 }
 
-function createAppUsageSummary(app: TrackedApp, usageSeconds: number, totalUsageSeconds: number): AppUsageSummary {
+function createAppUsageSummary(app: TrackedApp, usageSeconds: number): AppUsageSummary {
   const limitSeconds = Math.max(1, app.dailyLimitMinutes * 60)
   const percentUsed = Math.min(100, Math.round((usageSeconds / limitSeconds) * 100))
-  const sharePercent = totalUsageSeconds > 0 ? Math.round((usageSeconds / totalUsageSeconds) * 100) : 0
 
   return {
     app,
     usageSeconds,
     limitSeconds,
     percentUsed,
-    sharePercent,
     remainingSeconds: Math.max(0, limitSeconds - usageSeconds),
+    overLimitSeconds: Math.max(0, usageSeconds - limitSeconds),
     limitReached: usageSeconds >= limitSeconds
   }
 }
@@ -37,9 +36,8 @@ export function getAppUsageSummary(
   date = getLocalDateKey()
 ): AppUsageSummary {
   const usageForDate = getUsageForDate(usageTimes, date)
-  const totalUsageSeconds = Object.values(usageForDate).reduce((total, seconds) => total + seconds, 0)
 
-  return createAppUsageSummary(app, usageForDate[app.id] ?? 0, totalUsageSeconds)
+  return createAppUsageSummary(app, usageForDate[app.id] ?? 0)
 }
 
 export function getTrackedAppUsageSummaries(
@@ -48,13 +46,9 @@ export function getTrackedAppUsageSummaries(
   date = getLocalDateKey()
 ): AppUsageSummary[] {
   const usageForDate = getUsageForDate(usageTimes, date)
-  const totalUsageSeconds = trackedApps.reduce(
-    (total, app) => total + (usageForDate[app.id] ?? 0),
-    0
-  )
 
   return trackedApps
-    .map((app) => createAppUsageSummary(app, usageForDate[app.id] ?? 0, totalUsageSeconds))
+    .map((app) => createAppUsageSummary(app, usageForDate[app.id] ?? 0))
     .sort((left, right) => {
       const usageDelta = right.usageSeconds - left.usageSeconds
 
@@ -92,22 +86,6 @@ export function getTodayNotificationCount(
   date = getLocalDateKey()
 ): number {
   return notifications.filter((notification) => notification.date === date).length
-}
-
-export function getLimitPressurePercent(
-  trackedApps: TrackedApp[],
-  usageTimes: UsageTimes,
-  date = getLocalDateKey()
-): number {
-  if (trackedApps.length === 0) {
-    return 0
-  }
-
-  const summaries = getTrackedAppUsageSummaries(trackedApps, usageTimes, date)
-  const totalLimitSeconds = summaries.reduce((total, summary) => total + summary.limitSeconds, 0)
-  const totalUsageSeconds = summaries.reduce((total, summary) => total + summary.usageSeconds, 0)
-
-  return totalLimitSeconds > 0 ? Math.min(100, Math.round((totalUsageSeconds / totalLimitSeconds) * 100)) : 0
 }
 
 export function formatDuration(totalSeconds: number): string {

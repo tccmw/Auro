@@ -1,11 +1,9 @@
-import { AlertTriangle, Bell, Clock, ListChecks, Plus, Target } from 'lucide-react'
-import type { CSSProperties } from 'react'
+import { AlertTriangle, Bell, Clock, ListChecks, Plus } from 'lucide-react'
 import { getLocalDateKey } from '../../shared/date'
 import type { NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
 import {
   formatDuration,
   getExceededAppCount,
-  getLimitPressurePercent,
   getTodayNotificationCount,
   getTotalUsageSeconds,
   getTrackedAppUsageSummaries
@@ -17,6 +15,7 @@ interface UsageDashboardProps {
   usageTimes: UsageTimes
   notifications: NotificationHistory[]
   onOpenSettings: () => void
+  onOpenUsage: () => void
 }
 
 function formatNotificationTime(sentAt: string): string {
@@ -38,7 +37,8 @@ export function UsageDashboard({
   trackedApps,
   usageTimes,
   notifications,
-  onOpenSettings
+  onOpenSettings,
+  onOpenUsage
 }: UsageDashboardProps) {
   const today = getLocalDateKey()
   const summaries = getTrackedAppUsageSummaries(trackedApps, usageTimes, today)
@@ -46,9 +46,9 @@ export function UsageDashboard({
   const totalUsageSeconds = getTotalUsageSeconds(usageTimes, today)
   const exceededCount = getExceededAppCount(trackedApps, usageTimes, today)
   const todayNotifications = getTodayNotificationCount(notifications, today)
-  const limitPressure = getLimitPressurePercent(trackedApps, usageTimes, today)
   const activeAppCount = summaries.filter((summary) => summary.usageSeconds > 0).length
   const recentNotifications = notifications.slice(0, 5)
+  const maxUsageSeconds = Math.max(1, ...summaries.map((summary) => summary.usageSeconds))
 
   const metrics = [
     {
@@ -64,10 +64,10 @@ export function UsageDashboard({
       icon: ListChecks
     },
     {
-      label: '제한 사용률',
-      value: `${limitPressure}%`,
-      hint: exceededCount > 0 ? `${exceededCount}개 초과` : '정상 범위',
-      icon: Target
+      label: '초과 앱',
+      value: `${exceededCount}개`,
+      hint: exceededCount > 0 ? '확인 필요' : '초과 없음',
+      icon: AlertTriangle
     },
     {
       label: '오늘 알림',
@@ -103,7 +103,9 @@ export function UsageDashboard({
               <p className="eyebrow">요약</p>
               <h2>오늘 사용 현황</h2>
             </div>
-            <span className="panel-note">실시간 집계</span>
+            <button type="button" className="ghost-button compact-button" onClick={onOpenUsage}>
+              앱 사용량 보기
+            </button>
           </div>
 
           {trackedApps.length === 0 ? (
@@ -119,7 +121,7 @@ export function UsageDashboard({
             </div>
           ) : (
             <>
-              <div className="focus-summary">
+              <div className="focus-summary simple">
                 <div className="top-app-block">
                   {topSummary && <AppAvatar app={topSummary.app} large />}
                   <div>
@@ -127,23 +129,18 @@ export function UsageDashboard({
                     <strong>{topSummary ? topSummary.app.name : '기록 없음'}</strong>
                     <p>
                       {topSummary
-                        ? `${formatDuration(topSummary.usageSeconds)} 사용 · 제한의 ${topSummary.percentUsed}%`
+                        ? `${formatDuration(topSummary.usageSeconds)} 사용 · ${
+                            topSummary.limitReached
+                              ? `${formatDuration(topSummary.overLimitSeconds)} 초과`
+                              : `${formatDuration(topSummary.remainingSeconds)} 남음`
+                          }`
                         : '오늘 기록된 사용량이 없습니다.'}
                     </p>
                   </div>
                 </div>
-
-                <div
-                  className="pressure-ring"
-                  style={{ '--ring-progress': `${limitPressure * 3.6}deg` } as CSSProperties}
-                  aria-label={`제한 사용률 ${limitPressure}%`}
-                >
-                  <strong>{limitPressure}%</strong>
-                  <span>제한 사용률</span>
-                </div>
               </div>
 
-              <div className="usage-share-list" aria-label="앱별 사용 비율">
+              <div className="usage-share-list" aria-label="앱별 사용 시간">
                 {summaries.slice(0, 6).map((summary) => (
                   <div className="usage-share-row" key={summary.app.id}>
                     <AppAvatar app={summary.app} />
@@ -156,13 +153,15 @@ export function UsageDashboard({
                         <div
                           className={summary.limitReached ? 'progress-fill alert' : 'progress-fill'}
                           style={{
-                            width: `${summary.usageSeconds > 0 ? Math.max(summary.sharePercent, 3) : 0}%`
+                            width: `${summary.usageSeconds > 0 ? Math.max((summary.usageSeconds / maxUsageSeconds) * 100, 3) : 0}%`
                           }}
                         />
                       </div>
                     </div>
                     <span className={summary.limitReached ? 'status-chip alert' : 'status-chip'}>
-                      {summary.limitReached ? '초과' : `${summary.sharePercent}%`}
+                      {summary.limitReached
+                        ? `${formatDuration(summary.overLimitSeconds)} 초과`
+                        : `${formatDuration(summary.remainingSeconds)} 남음`}
                     </span>
                   </div>
                 ))}
