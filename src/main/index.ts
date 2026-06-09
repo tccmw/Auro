@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../shared/ipc'
 import type { IpcChannel } from '../shared/ipc'
@@ -10,6 +10,7 @@ import { createProcessAdapter } from './tracking/processAdapter'
 import { UsageTracker } from './tracking/usageTracker'
 
 let mainWindow: BrowserWindow | null = null
+const appIconPath = join(app.getAppPath(), 'src/main/assets/auro-icon.png')
 
 function sendToRenderer<T>(channel: IpcChannel, payload: T): void {
   BrowserWindow.getAllWindows().forEach((window) => {
@@ -39,13 +40,18 @@ function createWindow(): void {
     height: 780,
     minWidth: 940,
     minHeight: 620,
-    title: 'Limito',
+    title: 'Auro',
+    icon: appIconPath,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
   })
+
+  mainWindow.setMenu(null)
+  mainWindow.setMenuBarVisibility(false)
 
   if (process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -55,6 +61,8 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(() => {
+  app.setName('Auro')
+  Menu.setApplicationMenu(null)
   createWindow()
   tracker.start()
 

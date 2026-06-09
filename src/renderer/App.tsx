@@ -1,4 +1,4 @@
-import { Bell, BellOff, CalendarDays, Gauge, Settings, SlidersHorizontal } from 'lucide-react'
+import { Bell, BellOff, CalendarDays, Gauge, ListChecks, Settings, SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { getLocalDateKey } from '../shared/date'
 import type { TrackedApp } from '../shared/types'
@@ -6,6 +6,7 @@ import { AppForm } from './components/AppForm'
 import { InstalledAppPicker } from './components/InstalledAppPicker'
 import { TrackingStatusBar } from './components/TrackingStatusBar'
 import { TrackedAppCard } from './components/TrackedAppCard'
+import { UsageByAppPage } from './components/UsageByAppPage'
 import { UsageDashboard } from './components/UsageDashboard'
 import {
   formatDuration,
@@ -14,7 +15,7 @@ import {
 } from './stores/selectors'
 import { useUsageStore } from './stores/usageStore'
 
-type ViewMode = 'dashboard' | 'settings'
+type ViewMode = 'dashboard' | 'usage' | 'settings'
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
@@ -72,6 +73,14 @@ export default function App() {
             </button>
             <button
               type="button"
+              className={viewMode === 'usage' ? 'active' : ''}
+              onClick={() => setViewMode('usage')}
+            >
+              <ListChecks size={17} />
+              <span>앱 사용량</span>
+            </button>
+            <button
+              type="button"
               className={viewMode === 'settings' ? 'active' : ''}
               onClick={() => setViewMode('settings')}
             >
@@ -91,6 +100,7 @@ export default function App() {
             usageTimes={usageTimes}
             notifications={notifications}
             onOpenSettings={() => setViewMode('settings')}
+            onOpenUsage={() => setViewMode('usage')}
           />
 
           <section className="app-section">
@@ -131,6 +141,16 @@ export default function App() {
             )}
           </section>
         </>
+      ) : viewMode === 'usage' ? (
+        <UsageByAppPage
+          trackedApps={trackedApps}
+          usageTimes={usageTimes}
+          onOpenSettings={() => setViewMode('settings')}
+          onEditApp={(targetApp) => {
+            setEditingApp(targetApp)
+            setViewMode('settings')
+          }}
+        />
       ) : (
         <section className="settings-layout">
           <div className="settings-primary">

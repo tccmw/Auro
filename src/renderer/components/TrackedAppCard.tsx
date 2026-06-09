@@ -26,7 +26,7 @@ export function TrackedAppCard({
 }: TrackedAppCardProps) {
   const summary = getAppUsageSummary(app, usageTimes, getLocalDateKey())
   const statusLabel = summary.limitReached
-    ? '제한 초과'
+    ? `${formatDuration(summary.overLimitSeconds)} 초과`
     : summary.usageSeconds > 0
       ? `${formatDuration(summary.remainingSeconds)} 남음`
       : '사용 전'
@@ -67,7 +67,7 @@ export function TrackedAppCard({
         <span className={summary.limitReached ? 'status-chip alert' : 'status-chip'}>{statusLabel}</span>
       </div>
 
-      <div className="progress-track" aria-label={`${app.name} 사용률`}>
+      <div className="progress-track" aria-label={`${app.name} 제한 진행`}>
         <div
           className={summary.limitReached ? 'progress-fill alert' : 'progress-fill'}
           style={{ width: `${summary.percentUsed}%` }}
@@ -75,8 +75,8 @@ export function TrackedAppCard({
       </div>
 
       <div className="usage-meta">
-        <span>{summary.percentUsed}% 사용</span>
-        <span>일일 제한 {app.dailyLimitMinutes}분</span>
+        <span>사용 {formatDuration(summary.usageSeconds)}</span>
+        <span>제한 {formatDuration(summary.limitSeconds)}</span>
       </div>
     </article>
   )
