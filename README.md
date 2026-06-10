@@ -53,6 +53,17 @@ npm run build
 npm run electron
 ```
 
+## 설치 파일 만들기
+
+Windows 설치 프로그램을 생성합니다.
+
+```bash
+npm run dist:win
+```
+
+설치 파일은 `release/Auro-Setup-0.1.0.exe`에 생성됩니다. 설치 없이 빠르게 확인하려면
+`release/win-unpacked/Auro.exe`를 실행하면 됩니다.
+
 ## 폴더 구조
 
 ```txt
