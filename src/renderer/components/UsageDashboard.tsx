@@ -1,6 +1,7 @@
 import { AlertTriangle, Bell, Clock, ListChecks, Plus } from 'lucide-react'
+import { useState } from 'react'
 import { getLocalDateKey } from '../../shared/date'
-import type { NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
+import type { BlockedAppHistory, NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
 import {
   formatDuration,
   getExceededAppCount,
@@ -8,22 +9,25 @@ import {
   getTotalUsageSeconds,
   getTrackedAppUsageSummaries
 } from '../stores/selectors'
-import { getNotificationDisplayName } from './notificationDisplay'
+import { LimitEventList } from './LimitEventList'
+import {
+  filterLimitEvents,
+  getLimitEventFilterLabel,
+  getLimitEvents,
+  type LimitEventFilter
+} from './limitEvents'
 
 interface UsageDashboardProps {
   trackedApps: TrackedApp[]
   usageTimes: UsageTimes
   notifications: NotificationHistory[]
+  blockedApps: BlockedAppHistory[]
   onOpenSettings: () => void
   onOpenUsage: () => void
+  onOpenEvents: () => void
 }
 
-function formatNotificationTime(sentAt: string): string {
-  return new Date(sentAt).toLocaleTimeString('ko-KR', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
+const EVENT_FILTERS: LimitEventFilter[] = ['all', 'notification', 'blocked']
 
 function AppAvatar({ app, large = false }: { app: TrackedApp; large?: boolean }) {
   return (
@@ -37,17 +41,24 @@ export function UsageDashboard({
   trackedApps,
   usageTimes,
   notifications,
+  blockedApps,
   onOpenSettings,
-  onOpenUsage
+  onOpenUsage,
+  onOpenEvents
 }: UsageDashboardProps) {
+  const [eventFilter, setEventFilter] = useState<LimitEventFilter>('all')
   const today = getLocalDateKey()
   const summaries = getTrackedAppUsageSummaries(trackedApps, usageTimes, today)
   const topSummary = summaries.find((summary) => summary.usageSeconds > 0) ?? summaries[0] ?? null
   const totalUsageSeconds = getTotalUsageSeconds(usageTimes, today)
   const exceededCount = getExceededAppCount(trackedApps, usageTimes, today)
   const todayNotifications = getTodayNotificationCount(notifications, today)
+  const todayBlockedApps = blockedApps.filter((blockedApp) => blockedApp.date === today).length
   const activeAppCount = summaries.filter((summary) => summary.usageSeconds > 0).length
-  const recentNotifications = notifications.slice(0, 5)
+  const recentLimitEvents = filterLimitEvents(
+    getLimitEvents(notifications, blockedApps, trackedApps),
+    eventFilter
+  ).slice(0, 5)
   const maxUsageSeconds = Math.max(1, ...summaries.map((summary) => summary.usageSeconds))
 
   const metrics = [
@@ -71,8 +82,8 @@ export function UsageDashboard({
     },
     {
       label: '오늘 알림',
-      value: `${todayNotifications}건`,
-      hint: todayNotifications > 0 ? '확인 필요' : '알림 없음',
+      value: `${todayNotifications + todayBlockedApps}건`,
+      hint: todayNotifications + todayBlockedApps > 0 ? '확인 필요' : '알림 없음',
       icon: Bell
     }
   ]
@@ -174,30 +185,31 @@ export function UsageDashboard({
           <div className="panel-heading">
             <div>
               <p className="eyebrow">알림</p>
-              <h2>최근 제한 알림</h2>
+              <h2>최근 제한 이벤트</h2>
             </div>
-            <span className="panel-note">{recentNotifications.length}건</span>
+            <button type="button" className="panel-link-button" onClick={onOpenEvents}>
+              모두 보기
+            </button>
           </div>
 
-          {recentNotifications.length === 0 ? (
-            <div className="empty-state compact">
-              <AlertTriangle size={17} />
-              <span>아직 제한 알림이 없습니다.</span>
-            </div>
-          ) : (
-            <div className="notification-list">
-              {recentNotifications.map((notification) => (
-                <div className="notification-item" key={notification.id}>
-                  <span className="notification-dot" />
-                  <div>
-                    <strong>{getNotificationDisplayName(notification, trackedApps)}</strong>
-                    <span>{notification.date}</span>
-                  </div>
-                  <time dateTime={notification.sentAt}>{formatNotificationTime(notification.sentAt)}</time>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="event-filter-row" role="tablist" aria-label="제한 이벤트 필터">
+            {EVENT_FILTERS.map((filter) => (
+              <button
+                type="button"
+                key={filter}
+                className={eventFilter === filter ? 'active' : ''}
+                aria-pressed={eventFilter === filter}
+                onClick={() => setEventFilter(filter)}
+              >
+                {getLimitEventFilterLabel(filter)}
+              </button>
+            ))}
+          </div>
+
+          <LimitEventList
+            events={recentLimitEvents}
+            emptyLabel={`${getLimitEventFilterLabel(eventFilter)} 이벤트가 없습니다.`}
+          />
         </aside>
       </div>
     </section>

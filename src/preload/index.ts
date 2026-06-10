@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/ipc'
 import type {
   AuroApi,
+  BlockedAppHistory,
   InstalledAppCandidate,
   NotificationHistory,
   SettingsUpdatePayload,
@@ -31,6 +32,7 @@ const api: AuroApi = {
   onUsageUpdate: (callback) => subscribe<UsageUpdatePayload>(IPC_CHANNELS.USAGE_UPDATE, callback),
   onNotificationSent: (callback) =>
     subscribe<NotificationHistory>(IPC_CHANNELS.NOTIFICATION_SENT, callback),
+  onAppBlocked: (callback) => subscribe<BlockedAppHistory>(IPC_CHANNELS.APP_BLOCKED, callback),
   onTrackingStatus: (callback) => subscribe<TrackingStatusPayload>(IPC_CHANNELS.TRACKING_STATUS, callback)
 }
 

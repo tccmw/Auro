@@ -13,6 +13,9 @@ export function registerRendererIpc(): () => void {
   const unsubscribeNotification = api.onNotificationSent((payload) => {
     useUsageStore.getState().addNotification(payload)
   })
+  const unsubscribeBlocked = api.onAppBlocked((payload) => {
+    useUsageStore.getState().addBlockedApp(payload)
+  })
   const unsubscribeStatus = api.onTrackingStatus((payload) => {
     useUsageStore.getState().setTrackingStatus(payload)
   })
@@ -22,6 +25,7 @@ export function registerRendererIpc(): () => void {
   return () => {
     unsubscribeUsage()
     unsubscribeNotification()
+    unsubscribeBlocked()
     unsubscribeStatus()
   }
 }

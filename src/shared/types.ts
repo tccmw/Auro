@@ -37,11 +37,22 @@ export interface NotificationHistory {
   sentAt: string
 }
 
+export interface BlockedAppHistory {
+  id: string
+  appId: string
+  appName?: string
+  date: DateKey
+  blockedAt: string
+  processName: string
+  usageSeconds: number
+}
+
 export interface SettingsUpdatePayload {
   trackedApps: TrackedApp[]
   settings: AppSettings
   usageTimes?: UsageTimes
   notifications?: NotificationHistory[]
+  blockedApps?: BlockedAppHistory[]
 }
 
 export interface UsageUpdatePayload {
@@ -61,6 +72,7 @@ export interface AuroApi {
   updateSettings: (payload: SettingsUpdatePayload) => Promise<void>
   onUsageUpdate: (callback: (payload: UsageUpdatePayload) => void) => () => void
   onNotificationSent: (callback: (payload: NotificationHistory) => void) => () => void
+  onAppBlocked: (callback: (payload: BlockedAppHistory) => void) => () => void
   onTrackingStatus: (callback: (payload: TrackingStatusPayload) => void) => () => void
 }
 

@@ -4,18 +4,20 @@ import { getLocalDateKey } from '../shared/date'
 import type { TrackedApp } from '../shared/types'
 import { AppForm } from './components/AppForm'
 import { InstalledAppPicker } from './components/InstalledAppPicker'
+import { LimitEventsPage } from './components/LimitEventsPage'
 import { TrackingStatusBar } from './components/TrackingStatusBar'
 import { TrackedAppCard } from './components/TrackedAppCard'
 import { UsageByAppPage } from './components/UsageByAppPage'
 import { UsageDashboard } from './components/UsageDashboard'
 import {
   formatDuration,
+  isAppLockedForDate,
   getTotalUsageSeconds,
   getTrackedAppUsageSummaries
 } from './stores/selectors'
 import { useUsageStore } from './stores/usageStore'
 
-type ViewMode = 'dashboard' | 'usage' | 'settings'
+type ViewMode = 'dashboard' | 'usage' | 'settings' | 'events'
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
@@ -25,6 +27,7 @@ export default function App() {
   const usageTimes = useUsageStore((state) => state.usageTimes)
   const settings = useUsageStore((state) => state.settings)
   const notifications = useUsageStore((state) => state.notifications)
+  const blockedApps = useUsageStore((state) => state.blockedApps)
   const trackingStatus = useUsageStore((state) => state.trackingStatus)
   const addTrackedApp = useUsageStore((state) => state.addTrackedApp)
   const addTrackedApps = useUsageStore((state) => state.addTrackedApps)
@@ -43,6 +46,7 @@ export default function App() {
     day: 'numeric',
     weekday: 'short'
   })
+  const editingAppLocked = editingApp ? isAppLockedForDate(editingApp, usageTimes, today) : false
 
   return (
     <main className="app-shell">
@@ -99,8 +103,10 @@ export default function App() {
             trackedApps={trackedApps}
             usageTimes={usageTimes}
             notifications={notifications}
+            blockedApps={blockedApps}
             onOpenSettings={() => setViewMode('settings')}
             onOpenUsage={() => setViewMode('usage')}
+            onOpenEvents={() => setViewMode('events')}
           />
 
           <section className="app-section">
@@ -131,6 +137,10 @@ export default function App() {
                     app={app}
                     usageTimes={usageTimes}
                     onEdit={(targetApp) => {
+                      if (isAppLockedForDate(targetApp, usageTimes, today)) {
+                        return
+                      }
+
                       setEditingApp(targetApp)
                       setViewMode('settings')
                     }}
@@ -147,9 +157,20 @@ export default function App() {
           usageTimes={usageTimes}
           onOpenSettings={() => setViewMode('settings')}
           onEditApp={(targetApp) => {
+            if (isAppLockedForDate(targetApp, usageTimes, today)) {
+              return
+            }
+
             setEditingApp(targetApp)
             setViewMode('settings')
           }}
+        />
+      ) : viewMode === 'events' ? (
+        <LimitEventsPage
+          trackedApps={trackedApps}
+          notifications={notifications}
+          blockedApps={blockedApps}
+          onBack={() => setViewMode('dashboard')}
         />
       ) : (
         <section className="settings-layout">
@@ -164,6 +185,7 @@ export default function App() {
 
             <InstalledAppPicker
               trackedApps={trackedApps}
+              usageTimes={usageTimes}
               onAddApps={addTrackedApps}
               onRemoveApp={removeTrackedApp}
               onUpdateApp={updateTrackedApp}
@@ -179,6 +201,7 @@ export default function App() {
                 </div>
                 <AppForm
                   editingApp={editingApp}
+                  locked={editingAppLocked}
                   onCancelEdit={() => setEditingApp(null)}
                   onCreate={(input) => addTrackedApp(input)}
                   onUpdate={(appId, input) => {
@@ -254,6 +277,8 @@ export default function App() {
                       type="button"
                       key={summary.app.id}
                       className="settings-app-row"
+                      disabled={summary.limitReached}
+                      title={summary.limitReached ? '내일까지 잠김' : `${summary.app.name} 수정`}
                       onClick={() => setEditingApp(summary.app)}
                     >
                       <span>

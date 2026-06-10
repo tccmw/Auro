@@ -1,6 +1,8 @@
 import { Bell, BellOff, CheckSquare, RefreshCw, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { InstalledAppCandidate, TrackedApp } from '../../shared/types'
+import { getLocalDateKey } from '../../shared/date'
+import type { InstalledAppCandidate, TrackedApp, UsageTimes } from '../../shared/types'
+import { isAppLockedForDate } from '../../shared/usageLimits'
 import type { TrackedAppInput } from '../stores/usageStore'
 import {
   filterInstalledAppCandidates,
@@ -12,12 +14,22 @@ import {
 
 interface InstalledAppPickerProps {
   trackedApps: TrackedApp[]
+  usageTimes: UsageTimes
   onAddApps: (inputs: TrackedAppInput[]) => void
   onRemoveApp: (appId: string) => void
   onUpdateApp: (appId: string, updates: Partial<TrackedAppInput>) => void
 }
 
-function getSourceLabel(candidate: InstalledAppCandidate, registeredApp?: TrackedApp, pending = false): string {
+function getSourceLabel(
+  candidate: InstalledAppCandidate,
+  registeredApp?: TrackedApp,
+  pending = false,
+  locked = false
+): string {
+  if (locked) {
+    return '내일까지 잠김'
+  }
+
   if (registeredApp) {
     return '추적 중'
   }
@@ -31,6 +43,7 @@ function getSourceLabel(candidate: InstalledAppCandidate, registeredApp?: Tracke
 
 export function InstalledAppPicker({
   trackedApps,
+  usageTimes,
   onAddApps,
   onRemoveApp,
   onUpdateApp
@@ -85,7 +98,17 @@ export function InstalledAppPicker({
     [dailyLimitMinutes, notificationEnabled, selectedCandidates, trackedApps]
   )
 
-  const toggleCandidate = (candidate: InstalledAppCandidate, registeredApp?: TrackedApp): void => {
+  const today = getLocalDateKey()
+
+  const toggleCandidate = (
+    candidate: InstalledAppCandidate,
+    registeredApp?: TrackedApp,
+    locked = false
+  ): void => {
+    if (locked) {
+      return
+    }
+
     if (registeredApp) {
       onRemoveApp(registeredApp.id)
       return
@@ -173,6 +196,9 @@ export function InstalledAppPicker({
         ) : (
           sortedCandidates.map((candidate) => {
             const registeredApp = getRegisteredAppForCandidate(candidate, trackedApps)
+            const locked = registeredApp
+              ? isAppLockedForDate(registeredApp, usageTimes, today)
+              : false
             const pending = !registeredApp && selectedIds.has(candidate.id)
             const checked = Boolean(registeredApp) || pending
             const icon = getCandidateIconPresentation(candidate)
@@ -182,16 +208,19 @@ export function InstalledAppPicker({
                 className={[
                   'candidate-row',
                   registeredApp ? 'registered' : '',
-                  pending ? 'pending' : ''
+                  pending ? 'pending' : '',
+                  locked ? 'locked' : ''
                 ]
                   .filter(Boolean)
                   .join(' ')}
                 key={candidate.id}
+                title={locked ? '오늘 제한 시간을 초과해 내일까지 삭제/수정할 수 없습니다.' : undefined}
               >
                 <input
                   type="checkbox"
                   checked={checked}
-                  onChange={() => toggleCandidate(candidate, registeredApp)}
+                  disabled={locked}
+                  onChange={() => toggleCandidate(candidate, registeredApp, locked)}
                 />
                 <span className={icon.type === 'image' ? 'candidate-avatar image' : 'candidate-avatar'}>
                   {icon.type === 'image' ? <img src={icon.src} alt={icon.alt} /> : icon.label}
@@ -210,6 +239,7 @@ export function InstalledAppPicker({
                       min={1}
                       type="number"
                       value={registeredApp.dailyLimitMinutes}
+                      disabled={locked}
                       onChange={(event) =>
                         onUpdateApp(registeredApp.id, {
                           dailyLimitMinutes: Number(event.target.value)
@@ -219,7 +249,9 @@ export function InstalledAppPicker({
                     <span>분</span>
                   </span>
                 ) : null}
-                <span className="candidate-source">{getSourceLabel(candidate, registeredApp, pending)}</span>
+                <span className="candidate-source">
+                  {getSourceLabel(candidate, registeredApp, pending, locked)}
+                </span>
               </label>
             )
           })

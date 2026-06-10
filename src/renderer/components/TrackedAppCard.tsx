@@ -1,4 +1,4 @@
-import { Bell, BellOff, Pencil, Trash2 } from 'lucide-react'
+import { Bell, BellOff, Lock, Pencil, Trash2 } from 'lucide-react'
 import { getLocalDateKey } from '../../shared/date'
 import type { TrackedApp, UsageTimes } from '../../shared/types'
 import { formatDuration, getAppUsageSummary } from '../stores/selectors'
@@ -25,8 +25,9 @@ export function TrackedAppCard({
   onRemove
 }: TrackedAppCardProps) {
   const summary = getAppUsageSummary(app, usageTimes, getLocalDateKey())
+  const locked = summary.limitReached
   const statusLabel = summary.limitReached
-    ? `${formatDuration(summary.overLimitSeconds)} 초과`
+    ? '내일까지 잠김'
     : summary.usageSeconds > 0
       ? `${formatDuration(summary.remainingSeconds)} 남음`
       : '사용 전'
@@ -45,13 +46,20 @@ export function TrackedAppCard({
           <span className="notification-pill" title={app.notificationEnabled ? '알림 켜짐' : '알림 꺼짐'}>
             {app.notificationEnabled ? <Bell size={15} /> : <BellOff size={15} />}
           </span>
-          <button type="button" className="icon-button" title="앱 수정" onClick={() => onEdit(app)}>
+          <button
+            type="button"
+            className="icon-button"
+            title={locked ? '내일까지 잠김' : '앱 수정'}
+            disabled={locked}
+            onClick={() => onEdit(app)}
+          >
             <Pencil size={16} />
           </button>
           <button
             type="button"
             className="icon-button danger"
-            title="앱 삭제"
+            title={locked ? '내일까지 잠김' : '앱 삭제'}
+            disabled={locked}
             onClick={() => onRemove(app.id)}
           >
             <Trash2 size={16} />
@@ -64,7 +72,10 @@ export function TrackedAppCard({
           <span>오늘 사용</span>
           <strong>{formatDuration(summary.usageSeconds)}</strong>
         </div>
-        <span className={summary.limitReached ? 'status-chip alert' : 'status-chip'}>{statusLabel}</span>
+        <span className={summary.limitReached ? 'status-chip alert' : 'status-chip'}>
+          {locked && <Lock size={13} />}
+          {statusLabel}
+        </span>
       </div>
 
       <div className="progress-track" aria-label={`${app.name} 제한 진행`}>

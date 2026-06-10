@@ -8,6 +8,7 @@ const execFileAsync = promisify(execFile)
 const INSTALLER_EXECUTABLE_TERMS = ['uninstall', 'unins', 'setup', 'installer', 'update']
 const WINDOWS_INSTALLED_APPS_SCRIPT = `
 $ErrorActionPreference = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $items = @()
@@ -232,7 +233,7 @@ export class WindowsInstalledAppAdapter implements InstalledAppProvider {
         '-EncodedCommand',
         encodePowerShellCommand(WINDOWS_INSTALLED_APPS_SCRIPT)
       ],
-      { windowsHide: true, timeout: 10_000, maxBuffer: 4 * 1024 * 1024 }
+      { windowsHide: true, timeout: 30_000, maxBuffer: 4 * 1024 * 1024 }
     )
 
     const parsed = stdout.trim() ? JSON.parse(stdout) : []

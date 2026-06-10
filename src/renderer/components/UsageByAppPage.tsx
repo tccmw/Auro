@@ -1,4 +1,4 @@
-import { Plus, Settings } from 'lucide-react'
+import { Lock, Plus, Settings } from 'lucide-react'
 import { getLocalDateKey } from '../../shared/date'
 import type { TrackedApp, UsageTimes } from '../../shared/types'
 import { formatDuration, getTrackedAppUsageSummaries } from '../stores/selectors'
@@ -110,6 +110,8 @@ export function UsageByAppPage({
                     type="button"
                     className="most-used-app"
                     key={summary.app.id}
+                    disabled={summary.limitReached}
+                    title={summary.limitReached ? '내일까지 잠김' : `${summary.app.name} 수정`}
                     onClick={() => onEditApp(summary.app)}
                   >
                     <AppAvatar app={summary.app} large />
@@ -134,7 +136,7 @@ export function UsageByAppPage({
                 const relativeWidth =
                   summary.usageSeconds > 0 ? Math.max((summary.usageSeconds / maxUsageSeconds) * 100, 3) : 0
                 const stateLabel = summary.limitReached
-                  ? `${formatDuration(summary.overLimitSeconds)} 초과`
+                  ? '내일까지 잠김'
                   : `${formatDuration(summary.remainingSeconds)} 남음`
 
                 return (
@@ -161,7 +163,10 @@ export function UsageByAppPage({
                       </div>
                       <div>
                         <span>상태</span>
-                        <strong className={summary.limitReached ? 'danger-text' : ''}>{stateLabel}</strong>
+                        <strong className={summary.limitReached ? 'danger-text lock-label' : ''}>
+                          {summary.limitReached && <Lock size={13} />}
+                          {stateLabel}
+                        </strong>
                       </div>
                     </div>
 
@@ -183,7 +188,13 @@ export function UsageByAppPage({
                       </div>
                     </div>
 
-                    <button type="button" className="ghost-button compact-button" onClick={() => onEditApp(summary.app)}>
+                    <button
+                      type="button"
+                      className="ghost-button compact-button"
+                      disabled={summary.limitReached}
+                      title={summary.limitReached ? '내일까지 잠김' : `${summary.app.name} 수정`}
+                      onClick={() => onEditApp(summary.app)}
+                    >
                       <Settings size={15} />
                       <span>수정</span>
                     </button>

@@ -1,15 +1,18 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { DEFAULT_SETTINGS, sanitizeSettings } from '../../shared/defaults'
+import { getLocalDateKey } from '../../shared/date'
 import { normalizeProcessName } from '../../shared/process'
 import type {
   AppSettings,
+  BlockedAppHistory,
   NotificationHistory,
   TrackingStatusPayload,
   TrackedApp,
   UsageTimes,
   UsageUpdatePayload
 } from '../../shared/types'
+import { isAppLockedForDate } from '../../shared/usageLimits'
 import {
   createAuroPersistStorage,
   STORE_STORAGE_KEY,
@@ -35,6 +38,7 @@ export interface UsageStore extends PersistedLimitoState {
   updateSettings: (settings: Partial<AppSettings>) => void
   applyUsageUpdate: (payload: UsageUpdatePayload) => void
   addNotification: (notification: NotificationHistory) => void
+  addBlockedApp: (blockedApp: BlockedAppHistory) => void
   setTrackingStatus: (status: TrackingStatusPayload) => void
   hydrateMainProcessSettings: () => Promise<void>
 }
@@ -108,7 +112,8 @@ export function createInitialPersistedState(): PersistedLimitoState {
     trackedApps: [],
     usageTimes: {},
     settings: DEFAULT_SETTINGS,
-    notifications: []
+    notifications: [],
+    blockedApps: []
   }
 }
 
@@ -120,7 +125,10 @@ export function migratePersistedState(
     return createInitialPersistedState()
   }
 
-  return persistedState as PersistedLimitoState
+  return {
+    ...createInitialPersistedState(),
+    ...(persistedState as Partial<PersistedLimitoState>)
+  }
 }
 
 function syncPayloadFromState(state: UsageStore): PersistedLimitoState {
@@ -128,8 +136,24 @@ function syncPayloadFromState(state: UsageStore): PersistedLimitoState {
     trackedApps: state.trackedApps,
     usageTimes: state.usageTimes,
     settings: state.settings,
-    notifications: state.notifications
+    notifications: state.notifications,
+    blockedApps: state.blockedApps
   }
+}
+
+function backfillBlockedAppNames(
+  blockedApps: BlockedAppHistory[],
+  trackedApps: TrackedApp[]
+): BlockedAppHistory[] {
+  return blockedApps.map((blockedApp) => {
+    if (blockedApp.appName) {
+      return blockedApp
+    }
+
+    const app = trackedApps.find((trackedApp) => trackedApp.id === blockedApp.appId)
+
+    return app ? { ...blockedApp, appName: app.name } : blockedApp
+  })
 }
 
 async function syncMainProcess(state: UsageStore): Promise<void> {
@@ -149,6 +173,7 @@ export const useUsageStore = create<UsageStore>()(
       usageTimes: {},
       settings: DEFAULT_SETTINGS,
       notifications: [],
+      blockedApps: [],
       trackingStatus: { running: false },
       addTrackedApp: (input) => {
         const app = createTrackedApp(input)
@@ -172,7 +197,7 @@ export const useUsageStore = create<UsageStore>()(
       updateTrackedApp: (appId, updates) => {
         set((state) => ({
           trackedApps: state.trackedApps.map((app) =>
-            app.id === appId
+            app.id === appId && !isAppLockedForDate(app, state.usageTimes, getLocalDateKey())
               ? {
                   ...app,
                   ...updates,
@@ -191,8 +216,11 @@ export const useUsageStore = create<UsageStore>()(
       },
       removeTrackedApp: (appId) => {
         set((state) => ({
-          trackedApps: state.trackedApps.filter((app) => app.id !== appId),
-          notifications: backfillNotificationAppNames(state.notifications, state.trackedApps)
+          trackedApps: state.trackedApps.filter(
+            (app) => app.id !== appId || isAppLockedForDate(app, state.usageTimes, getLocalDateKey())
+          ),
+          notifications: backfillNotificationAppNames(state.notifications, state.trackedApps),
+          blockedApps: backfillBlockedAppNames(state.blockedApps, state.trackedApps)
         }))
         void get().hydrateMainProcessSettings()
       },
@@ -230,6 +258,23 @@ export const useUsageStore = create<UsageStore>()(
           }
         })
       },
+      addBlockedApp: (blockedApp) => {
+        set((state) => {
+          if (state.blockedApps.some((item) => item.id === blockedApp.id)) {
+            return {
+              blockedApps: state.blockedApps.map((item) =>
+                item.id === blockedApp.id && !item.appName && blockedApp.appName
+                  ? { ...item, appName: blockedApp.appName }
+                  : item
+              )
+            }
+          }
+
+          return {
+            blockedApps: [blockedApp, ...state.blockedApps].slice(0, 200)
+          }
+        })
+      },
       setTrackingStatus: (status) => {
         set({ trackingStatus: status })
       },
@@ -246,12 +291,14 @@ export const useUsageStore = create<UsageStore>()(
         const persisted = (persistedState ?? {}) as Partial<PersistedLimitoState>
         const trackedApps = persisted.trackedApps ?? currentState.trackedApps
         const notifications = persisted.notifications ?? currentState.notifications
+        const blockedApps = persisted.blockedApps ?? currentState.blockedApps
 
         return {
           ...currentState,
           ...persisted,
           trackedApps,
-          notifications: backfillNotificationAppNames(notifications, trackedApps)
+          notifications: backfillNotificationAppNames(notifications, trackedApps),
+          blockedApps: backfillBlockedAppNames(blockedApps, trackedApps)
         }
       },
       partialize: (state) => syncPayloadFromState(state),

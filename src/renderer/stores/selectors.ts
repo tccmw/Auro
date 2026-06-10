@@ -1,5 +1,7 @@
 import { getLocalDateKey } from '../../shared/date'
 import type { NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
+import { getDailyLimitSeconds } from '../../shared/usageLimits'
+export { isAppLockedForDate } from '../../shared/usageLimits'
 
 export interface AppUsageSummary {
   app: TrackedApp
@@ -16,7 +18,7 @@ export function getUsageForDate(usageTimes: UsageTimes, date = getLocalDateKey()
 }
 
 function createAppUsageSummary(app: TrackedApp, usageSeconds: number): AppUsageSummary {
-  const limitSeconds = Math.max(1, app.dailyLimitMinutes * 60)
+  const limitSeconds = Math.max(1, getDailyLimitSeconds(app))
   const percentUsed = Math.min(100, Math.round((usageSeconds / limitSeconds) * 100))
 
   return {
