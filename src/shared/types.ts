@@ -27,6 +27,7 @@ export type UsageTimes = Record<DateKey, Record<string, number>>
 export interface AppSettings {
   trackingIntervalMs: number
   notificationEnabled: boolean
+  launchAtLoginEnabled: boolean
 }
 
 export interface NotificationHistory {
