@@ -35,7 +35,7 @@ describe('persistedState', () => {
     ).toEqual({
       trackedApps: [],
       usageTimes: { '2026-06-02': { chrome: 12 } },
-      settings: { trackingIntervalMs: 1000, notificationEnabled: true },
+      settings: { trackingIntervalMs: 1000, notificationEnabled: true, launchAtLoginEnabled: false },
       notifications: [{ id: 'n1', appId: 'chrome', appName: 'Chrome', date: '2026-06-02', sentAt: 'x' }]
     })
   })
@@ -83,7 +83,7 @@ describe('persistedState', () => {
       state: {
         trackedApps: [],
         usageTimes: {},
-        settings: { trackingIntervalMs: 1000, notificationEnabled: true },
+        settings: { trackingIntervalMs: 1000, notificationEnabled: true, launchAtLoginEnabled: false },
         notifications: []
       },
       version: 1

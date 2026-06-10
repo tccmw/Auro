@@ -11,7 +11,7 @@ import type {
 } from '../../shared/types'
 import type { NotificationService } from '../notification/notifier'
 import type { ProcessSnapshotProvider } from './processAdapter'
-import { matchTrackedApps } from './processMatcher'
+import { matchTrackedApp } from './processMatcher'
 import {
   createNotificationHistory,
   incrementUsageSeconds,
@@ -102,17 +102,17 @@ export class UsageTracker {
     this.tickInProgress = true
 
     try {
-      const runningProcesses = await this.processProvider.getRunningProcesses()
-      const activeApps = matchTrackedApps(this.trackedApps, runningProcesses)
+      const activeProcessName = await this.processProvider.getActiveProcessName()
+      const activeApp = matchTrackedApp(this.trackedApps, activeProcessName)
       const date = getLocalDateKey(this.now())
       const incrementSeconds = Math.max(1, Math.round(this.settings.trackingIntervalMs / 1000))
 
-      for (const app of activeApps) {
-        const result = incrementUsageSeconds(this.usageTimes, date, app.id, incrementSeconds)
+      if (activeApp) {
+        const result = incrementUsageSeconds(this.usageTimes, date, activeApp.id, incrementSeconds)
         this.usageTimes = result.usageTimes
-        this.events.emitUsageUpdate({ appId: app.id, date, usageSeconds: result.usageSeconds })
+        this.events.emitUsageUpdate({ appId: activeApp.id, date, usageSeconds: result.usageSeconds })
 
-        await this.maybeSendNotification(app, result.usageSeconds, date)
+        await this.maybeSendNotification(activeApp, result.usageSeconds, date)
       }
 
       this.events.emitTrackingStatus({ running: true, lastCheckedAt: this.now().toISOString() })

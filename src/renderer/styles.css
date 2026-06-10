@@ -734,6 +734,72 @@ button:disabled {
   gap: 10px;
 }
 
+.usage-page-heading,
+.usage-heading-actions,
+.report-day-bar {
+  display: flex;
+  align-items: center;
+}
+
+.usage-heading-actions {
+  gap: 12px;
+}
+
+.report-tabs button {
+  min-width: 72px;
+}
+
+.usage-range-report {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.report-daily-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+  gap: 7px;
+  align-items: end;
+  min-height: 156px;
+}
+
+.report-day-bar {
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.report-day-bar span,
+.report-day-bar small {
+  overflow: hidden;
+  width: 100%;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-day-track {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 84px;
+  background: #e8eef8;
+  border-radius: 6px;
+}
+
+.report-day-track i {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  background: #3f5fd7;
+  border-radius: 6px 6px 0 0;
+}
+
 .usage-app-row {
   display: grid;
   grid-template-columns: minmax(220px, 1.1fr) minmax(320px, 1.2fr) minmax(260px, 1fr) auto;

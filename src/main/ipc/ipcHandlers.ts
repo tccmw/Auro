@@ -6,11 +6,13 @@ import type { UsageTracker } from '../tracking/usageTracker'
 
 export function registerIpcHandlers(
   tracker: UsageTracker,
-  installedAppProvider: InstalledAppProvider
+  installedAppProvider: InstalledAppProvider,
+  onSettingsUpdate?: (payload: SettingsUpdatePayload) => void
 ): void {
   ipcMain.handle(IPC_CHANNELS.INSTALLED_APPS_LIST, () => installedAppProvider.listInstalledApps())
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_UPDATE, (_event, payload: SettingsUpdatePayload) => {
     tracker.updateConfig(payload)
+    onSettingsUpdate?.(payload)
   })
 }

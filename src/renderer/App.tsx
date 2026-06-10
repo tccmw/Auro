@@ -1,4 +1,13 @@
-import { Bell, BellOff, CalendarDays, Gauge, ListChecks, Settings, SlidersHorizontal } from 'lucide-react'
+import {
+  Bell,
+  BellOff,
+  CalendarDays,
+  Gauge,
+  ListChecks,
+  Power,
+  Settings,
+  SlidersHorizontal
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { getLocalDateKey } from '../shared/date'
 import type { TrackedApp } from '../shared/types'
@@ -233,6 +242,26 @@ export default function App() {
                 >
                   {settings.notificationEnabled ? <Bell size={18} /> : <BellOff size={18} />}
                   <span>{settings.notificationEnabled ? '전체 알림 켜짐' : '전체 알림 꺼짐'}</span>
+                </button>
+                <button
+                  type="button"
+                  className={settings.launchAtLoginEnabled ? 'toggle-button active' : 'toggle-button'}
+                  title={
+                    settings.launchAtLoginEnabled
+                      ? '로그인 시 자동 시작 켜짐'
+                      : '로그인 시 자동 시작 꺼짐'
+                  }
+                  aria-pressed={settings.launchAtLoginEnabled}
+                  onClick={() =>
+                    updateSettings({ launchAtLoginEnabled: !settings.launchAtLoginEnabled })
+                  }
+                >
+                  <Power size={18} />
+                  <span>
+                    {settings.launchAtLoginEnabled
+                      ? '로그인 시 자동 시작 켜짐'
+                      : '로그인 시 자동 시작 꺼짐'}
+                  </span>
                 </button>
               </div>
             </div>

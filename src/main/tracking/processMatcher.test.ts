@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchTrackedApps, normalizeProcessName } from './processMatcher'
+import { matchTrackedApp, matchTrackedApps, normalizeProcessName } from './processMatcher'
 import type { TrackedApp } from '../../shared/types'
 
 const app: TrackedApp = {
@@ -20,5 +20,11 @@ describe('processMatcher', () => {
   it('matches tracked apps by normalized process name', () => {
     expect(matchTrackedApps([app], ['System', 'Chrome'])).toEqual([app])
     expect(matchTrackedApps([app], ['Code.exe'])).toEqual([])
+  })
+
+  it('matches a single foreground process by normalized process name', () => {
+    expect(matchTrackedApp([app], 'C:\\Program Files\\Google\\Chrome.exe')).toEqual(app)
+    expect(matchTrackedApp([app], 'Code.exe')).toBeNull()
+    expect(matchTrackedApp([app], null)).toBeNull()
   })
 })
