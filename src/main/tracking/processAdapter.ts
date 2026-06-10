@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import { normalizeProcessName } from '../../shared/process'
 
 const execFileAsync = promisify(execFile)
+
 const WINDOWS_TERMINATE_PROCESS_SCRIPT = `
 param([string]$target)
 $ErrorActionPreference = 'Stop'
@@ -16,12 +17,49 @@ foreach ($process in $processes) {
 }
 `
 
+const WINDOWS_FOREGROUND_PROCESS_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class AuroForegroundWindow {
+  [DllImport("user32.dll")]
+  public static extern IntPtr GetForegroundWindow();
+
+  [DllImport("user32.dll")]
+  public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+}
+"@
+
+$handle = [AuroForegroundWindow]::GetForegroundWindow()
+if ($handle -eq [IntPtr]::Zero) { return }
+
+$processId = 0
+[void][AuroForegroundWindow]::GetWindowThreadProcessId($handle, [ref]$processId)
+if ($processId -le 0) { return }
+
+(Get-Process -Id $processId -ErrorAction Stop).ProcessName
+`
+
 export interface ProcessSnapshotProvider {
-  getRunningProcesses: () => Promise<string[]>
+  getActiveProcessName: () => Promise<string | null>
 }
 
 export interface ProcessTerminator {
   terminateProcessByName: (processName: string) => Promise<void>
+}
+
+function encodePowerShellCommand(command: string): string {
+  return Buffer.from(command.trim(), 'utf16le').toString('base64')
+}
+
+export function parseActiveProcessName(stdout: string): string | null {
+  return stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0) ?? null
 }
 
 export function assertSafeWindowsProcessName(processName: string): void {
@@ -41,17 +79,19 @@ export function createWindowsTerminateProcessArguments(processName: string): str
 }
 
 export class WindowsProcessAdapter implements ProcessSnapshotProvider, ProcessTerminator {
-  async getRunningProcesses(): Promise<string[]> {
+  async getActiveProcessName(): Promise<string | null> {
     const { stdout } = await execFileAsync(
       'powershell.exe',
-      ['-NoProfile', '-Command', 'Get-Process | Select-Object -ExpandProperty ProcessName'],
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-EncodedCommand',
+        encodePowerShellCommand(WINDOWS_FOREGROUND_PROCESS_SCRIPT)
+      ],
       { windowsHide: true, timeout: 5000 }
     )
 
-    return stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
+    return parseActiveProcessName(stdout)
   }
 
   async terminateProcessByName(processName: string): Promise<void> {
@@ -71,9 +111,9 @@ export class WindowsProcessAdapter implements ProcessSnapshotProvider, ProcessTe
   }
 }
 
-export class EmptyProcessAdapter implements ProcessSnapshotProvider {
-  async getRunningProcesses(): Promise<string[]> {
-    return []
+export class EmptyProcessAdapter implements ProcessSnapshotProvider, ProcessTerminator {
+  async getActiveProcessName(): Promise<string | null> {
+    return null
   }
 
   async terminateProcessByName(): Promise<void> {

@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
 import {
   formatDuration,
+  getMonthDateKeys,
   getExceededAppCount,
   getTodayNotificationCount,
   getTopUsedAppSummary,
-  getTrackedAppUsageSummaries
+  getTrackedAppUsageSummaries,
+  getUsageRangeReport,
+  getWeekDateKeys
 } from './selectors'
 
 const apps: TrackedApp[] = [
@@ -94,5 +97,54 @@ describe('selectors', () => {
     expect(formatDuration(3720)).toBe('1h 2m')
     expect(formatDuration(75)).toBe('1m 15s')
     expect(formatDuration(7)).toBe('7s')
+  })
+
+  it('creates Monday-to-Sunday week date keys', () => {
+    expect(getWeekDateKeys(new Date(2026, 5, 10))).toEqual([
+      '2026-06-08',
+      '2026-06-09',
+      '2026-06-10',
+      '2026-06-11',
+      '2026-06-12',
+      '2026-06-13',
+      '2026-06-14'
+    ])
+  })
+
+  it('creates month date keys for the selected local month', () => {
+    const monthKeys = getMonthDateKeys(new Date(2026, 5, 10))
+
+    expect(monthKeys[0]).toBe('2026-06-01')
+    expect(monthKeys[monthKeys.length - 1]).toBe('2026-06-30')
+    expect(monthKeys).toHaveLength(30)
+  })
+
+  it('aggregates usage across a date range by app and day', () => {
+    const report = getUsageRangeReport(apps, usageTimes, ['2026-06-08', '2026-06-09'])
+
+    expect(report).toMatchObject({
+      startDate: '2026-06-08',
+      endDate: '2026-06-09',
+      totalUsageSeconds: 3900,
+      activeAppCount: 2,
+      dailyTotals: [
+        { date: '2026-06-08', usageSeconds: 3900 },
+        { date: '2026-06-09', usageSeconds: 0 }
+      ]
+    })
+    expect(report.appSummaries).toMatchObject([
+      {
+        app: apps[1],
+        usageSeconds: 2100,
+        percentOfTotal: 54,
+        averageDailySeconds: 1050
+      },
+      {
+        app: apps[0],
+        usageSeconds: 1800,
+        percentOfTotal: 46,
+        averageDailySeconds: 900
+      }
+    ])
   })
 })

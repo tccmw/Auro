@@ -52,7 +52,7 @@ describe('usageLogic', () => {
       shouldSendLimitNotification({
         app,
         usageSeconds: 60,
-        settings: { trackingIntervalMs: 1000, notificationEnabled: true },
+        settings: { trackingIntervalMs: 1000, notificationEnabled: true, launchAtLoginEnabled: false },
         notifications,
         date: '2026-06-02'
       })
@@ -95,7 +95,7 @@ describe('usageLogic', () => {
       shouldSendLimitNotification({
         app,
         usageSeconds: 60,
-        settings: { trackingIntervalMs: 1000, notificationEnabled: false },
+        settings: { trackingIntervalMs: 1000, notificationEnabled: false, launchAtLoginEnabled: false },
         notifications: [],
         date: '2026-06-02'
       })
@@ -105,7 +105,7 @@ describe('usageLogic', () => {
       shouldSendLimitNotification({
         app: { ...app, notificationEnabled: false },
         usageSeconds: 60,
-        settings: { trackingIntervalMs: 1000, notificationEnabled: true },
+        settings: { trackingIntervalMs: 1000, notificationEnabled: true, launchAtLoginEnabled: false },
         notifications: [],
         date: '2026-06-02'
       })

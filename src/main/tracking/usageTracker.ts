@@ -12,7 +12,7 @@ import type {
 } from '../../shared/types'
 import type { NotificationService } from '../notification/notifier'
 import type { ProcessSnapshotProvider, ProcessTerminator } from './processAdapter'
-import { matchTrackedApps } from './processMatcher'
+import { matchTrackedApp } from './processMatcher'
 import {
   createBlockedAppHistory,
   createNotificationHistory,
@@ -127,27 +127,30 @@ export class UsageTracker {
     this.tickInProgress = true
 
     try {
-      const runningProcesses = await this.processProvider.getRunningProcesses()
-      const activeApps = matchTrackedApps(this.trackedApps, runningProcesses)
+      const activeProcessName = await this.processProvider.getActiveProcessName()
+      const activeApp = matchTrackedApp(this.trackedApps, activeProcessName)
       const date = getLocalDateKey(this.now())
       const incrementSeconds = Math.max(1, Math.round(this.settings.trackingIntervalMs / 1000))
 
-      for (const app of activeApps) {
-        const existingUsageSeconds = getUsageSeconds(this.usageTimes, date, app.id)
+      if (activeApp) {
+        const existingUsageSeconds = getUsageSeconds(this.usageTimes, date, activeApp.id)
 
-        if (isLimitReached(app, existingUsageSeconds)) {
-          await this.blockAppExecution(app, existingUsageSeconds, date)
-          continue
-        }
+        if (isLimitReached(activeApp, existingUsageSeconds)) {
+          await this.blockAppExecution(activeApp, existingUsageSeconds, date)
+        } else {
+          const result = incrementUsageSeconds(this.usageTimes, date, activeApp.id, incrementSeconds)
+          this.usageTimes = result.usageTimes
+          this.events.emitUsageUpdate({
+            appId: activeApp.id,
+            date,
+            usageSeconds: result.usageSeconds
+          })
 
-        const result = incrementUsageSeconds(this.usageTimes, date, app.id, incrementSeconds)
-        this.usageTimes = result.usageTimes
-        this.events.emitUsageUpdate({ appId: app.id, date, usageSeconds: result.usageSeconds })
+          await this.maybeSendNotification(activeApp, result.usageSeconds, date)
 
-        await this.maybeSendNotification(app, result.usageSeconds, date)
-
-        if (isLimitReached(app, result.usageSeconds)) {
-          await this.blockAppExecution(app, result.usageSeconds, date)
+          if (isLimitReached(activeApp, result.usageSeconds)) {
+            await this.blockAppExecution(activeApp, result.usageSeconds, date)
+          }
         }
       }
 

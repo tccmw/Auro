@@ -2,7 +2,8 @@ import type { AppSettings } from './types'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   trackingIntervalMs: 1000,
-  notificationEnabled: true
+  notificationEnabled: true,
+  launchAtLoginEnabled: false
 }
 
 export const MIN_TRACKING_INTERVAL_MS = 500
@@ -19,6 +20,10 @@ export function sanitizeSettings(settings: Partial<AppSettings> | null | undefin
     notificationEnabled:
       typeof settings?.notificationEnabled === 'boolean'
         ? settings.notificationEnabled
-        : DEFAULT_SETTINGS.notificationEnabled
+        : DEFAULT_SETTINGS.notificationEnabled,
+    launchAtLoginEnabled:
+      typeof settings?.launchAtLoginEnabled === 'boolean'
+        ? settings.launchAtLoginEnabled
+        : DEFAULT_SETTINGS.launchAtLoginEnabled
   }
 }

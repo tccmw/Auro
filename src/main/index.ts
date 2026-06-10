@@ -1,10 +1,11 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, Tray } from 'electron'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../shared/ipc'
 import type { IpcChannel } from '../shared/ipc'
 import type {
   BlockedAppHistory,
   NotificationHistory,
+  SettingsUpdatePayload,
   TrackingStatusPayload,
   UsageUpdatePayload
 } from '../shared/types'
@@ -16,6 +17,8 @@ import { UsageTracker } from './tracking/usageTracker'
 
 const WINDOWS_APP_USER_MODEL_ID = 'com.tccmw.auro'
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+let isQuitting = false
 const appIconPath = join(app.getAppPath(), 'src/main/assets/auro-icon.png')
 
 if (process.platform === 'win32') {
@@ -43,7 +46,59 @@ const tracker = new UsageTracker({
   }
 })
 
-registerIpcHandlers(tracker, createInstalledAppAdapter(process.platform, app.getFileIcon.bind(app)))
+function applyAppSettings(payload: SettingsUpdatePayload): void {
+  if (process.platform !== 'win32') {
+    return
+  }
+
+  app.setLoginItemSettings({
+    openAtLogin: payload.settings.launchAtLoginEnabled
+  })
+}
+
+registerIpcHandlers(
+  tracker,
+  createInstalledAppAdapter(process.platform, app.getFileIcon.bind(app)),
+  applyAppSettings
+)
+
+function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow()
+  }
+
+  mainWindow?.show()
+  mainWindow?.focus()
+}
+
+function quitApp(): void {
+  isQuitting = true
+  tracker.stop()
+  app.quit()
+}
+
+function createTray(): void {
+  if (tray) {
+    return
+  }
+
+  tray = new Tray(appIconPath)
+  tray.setToolTip('Auro')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Auro 열기',
+        click: showMainWindow
+      },
+      { type: 'separator' },
+      {
+        label: '종료',
+        click: quitApp
+      }
+    ])
+  )
+  tray.on('double-click', showMainWindow)
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -64,6 +119,19 @@ function createWindow(): void {
   mainWindow.setMenu(null)
   mainWindow.setMenuBarVisibility(false)
 
+  mainWindow.on('close', (event) => {
+    if (isQuitting) {
+      return
+    }
+
+    event.preventDefault()
+    mainWindow?.hide()
+  })
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+
   if (process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
@@ -75,6 +143,7 @@ void app.whenReady().then(() => {
   app.setName('Auro')
   Menu.setApplicationMenu(null)
   createWindow()
+  createTray()
   tracker.start()
 
   app.on('activate', () => {
@@ -85,8 +154,7 @@ void app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    tracker.stop()
+  if (process.platform !== 'darwin' && isQuitting) {
     app.quit()
   }
 })
