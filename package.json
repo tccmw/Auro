@@ -2,14 +2,53 @@
   "name": "auro",
   "version": "0.1.0",
   "description": "A light-first desktop focus and app usage tracker.",
+  "author": "tccmw",
   "main": "out/main/index.js",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc --noEmit && electron-vite build",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win nsis",
     "test": "vitest run",
     "test:watch": "vitest",
     "electron": "electron-vite preview"
+  },
+  "build": {
+    "appId": "com.tccmw.auro",
+    "productName": "Auro",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "src/main/assets/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Auro",
+      "deleteAppDataOnUninstall": false
+    }
   },
   "dependencies": {
     "lucide-react": "^1.17.0",
@@ -24,6 +63,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^41.7.1",
+    "electron-builder": "^26.15.2",
     "electron-vite": "^5.0.0",
     "typescript": "^6.0.3",
     "vite": "^7.3.5",

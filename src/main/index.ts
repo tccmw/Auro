@@ -14,8 +14,13 @@ import { ElectronNotificationService } from './notification/notifier'
 import { createProcessAdapter } from './tracking/processAdapter'
 import { UsageTracker } from './tracking/usageTracker'
 
+const WINDOWS_APP_USER_MODEL_ID = 'com.tccmw.auro'
 let mainWindow: BrowserWindow | null = null
 const appIconPath = join(app.getAppPath(), 'src/main/assets/auro-icon.png')
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID)
+}
 
 function sendToRenderer<T>(channel: IpcChannel, payload: T): void {
   BrowserWindow.getAllWindows().forEach((window) => {
