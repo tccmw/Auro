@@ -1,6 +1,12 @@
 import type { PersistStorage, StorageValue } from 'zustand/middleware'
 import { sanitizeSettings } from '../../shared/defaults'
-import type { AppSettings, NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
+import type {
+  AppSettings,
+  BlockedAppHistory,
+  NotificationHistory,
+  TrackedApp,
+  UsageTimes
+} from '../../shared/types'
 
 export const STORE_STORAGE_KEY = 'auro-usage-store'
 export const LEGACY_STORE_STORAGE_KEY = 'limito-usage-store'
@@ -10,6 +16,7 @@ export interface PersistedLimitoState {
   usageTimes: UsageTimes
   settings: AppSettings
   notifications: NotificationHistory[]
+  blockedApps: BlockedAppHistory[]
 }
 
 export interface StringStorage {
@@ -115,6 +122,43 @@ function sanitizeNotifications(value: unknown): NotificationHistory[] {
     .filter((notification): notification is NotificationHistory => notification !== null)
 }
 
+function sanitizeBlockedApps(value: unknown): BlockedAppHistory[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((blockedApp): BlockedAppHistory | null => {
+      if (
+        !isRecord(blockedApp) ||
+        typeof blockedApp.id !== 'string' ||
+        typeof blockedApp.appId !== 'string' ||
+        typeof blockedApp.date !== 'string' ||
+        typeof blockedApp.blockedAt !== 'string' ||
+        typeof blockedApp.processName !== 'string'
+      ) {
+        return null
+      }
+
+      const usageSeconds = Number(blockedApp.usageSeconds)
+
+      if (!Number.isFinite(usageSeconds)) {
+        return null
+      }
+
+      return {
+        id: blockedApp.id,
+        appId: blockedApp.appId,
+        appName: typeof blockedApp.appName === 'string' ? blockedApp.appName : undefined,
+        date: blockedApp.date,
+        blockedAt: blockedApp.blockedAt,
+        processName: blockedApp.processName,
+        usageSeconds: Math.max(0, Math.floor(usageSeconds))
+      }
+    })
+    .filter((blockedApp): blockedApp is BlockedAppHistory => blockedApp !== null)
+}
+
 export function sanitizePersistedState(value: unknown): PersistedLimitoState {
   const state = isRecord(value) ? value : {}
   const trackedApps = Array.isArray(state.trackedApps)
@@ -125,7 +169,8 @@ export function sanitizePersistedState(value: unknown): PersistedLimitoState {
     trackedApps,
     usageTimes: sanitizeUsageTimes(state.usageTimes),
     settings: sanitizeSettings(isRecord(state.settings) ? state.settings : undefined),
-    notifications: sanitizeNotifications(state.notifications)
+    notifications: sanitizeNotifications(state.notifications),
+    blockedApps: sanitizeBlockedApps(state.blockedApps)
   }
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
+import { getLocalDateKey } from '../../shared/date'
 import type { NotificationHistory, TrackedApp } from '../../shared/types'
 import {
   USAGE_STORE_PERSIST_VERSION,
@@ -94,6 +95,7 @@ describe('usageStore helpers', () => {
           sentAt: '2026-06-02T01:00:00.000Z'
         }
       ],
+      blockedApps: [],
       trackingStatus: { running: false }
     })
 
@@ -111,6 +113,40 @@ describe('usageStore helpers', () => {
     ])
   })
 
+  it('does not update an app that is locked for today', () => {
+    const today = getLocalDateKey()
+
+    useUsageStore.setState({
+      trackedApps: existingApps,
+      usageTimes: { [today]: { chrome: 3600 } },
+      settings: DEFAULT_SETTINGS,
+      notifications: [],
+      blockedApps: [],
+      trackingStatus: { running: false }
+    })
+
+    useUsageStore.getState().updateTrackedApp('chrome', { dailyLimitMinutes: 120 })
+
+    expect(useUsageStore.getState().trackedApps[0].dailyLimitMinutes).toBe(60)
+  })
+
+  it('does not remove an app that is locked for today', () => {
+    const today = getLocalDateKey()
+
+    useUsageStore.setState({
+      trackedApps: existingApps,
+      usageTimes: { [today]: { chrome: 3600 } },
+      settings: DEFAULT_SETTINGS,
+      notifications: [],
+      blockedApps: [],
+      trackingStatus: { running: false }
+    })
+
+    useUsageStore.getState().removeTrackedApp('chrome')
+
+    expect(useUsageStore.getState().trackedApps).toEqual(existingApps)
+  })
+
   it('resets previous persisted versions to the initial state', () => {
     expect(
       migratePersistedState(
@@ -125,7 +161,8 @@ describe('usageStore helpers', () => {
               date: '2026-06-02',
               sentAt: '2026-06-02T01:00:00.000Z'
             }
-          ]
+          ],
+          blockedApps: []
         },
         USAGE_STORE_PERSIST_VERSION - 1
       )
@@ -133,7 +170,8 @@ describe('usageStore helpers', () => {
       trackedApps: [],
       usageTimes: {},
       settings: DEFAULT_SETTINGS,
-      notifications: []
+      notifications: [],
+      blockedApps: []
     })
   })
 })

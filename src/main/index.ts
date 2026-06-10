@@ -2,7 +2,12 @@ import { app, BrowserWindow, Menu } from 'electron'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../shared/ipc'
 import type { IpcChannel } from '../shared/ipc'
-import type { NotificationHistory, TrackingStatusPayload, UsageUpdatePayload } from '../shared/types'
+import type {
+  BlockedAppHistory,
+  NotificationHistory,
+  TrackingStatusPayload,
+  UsageUpdatePayload
+} from '../shared/types'
 import { createInstalledAppAdapter } from './installedApps/installedApps'
 import { registerIpcHandlers } from './ipc/ipcHandlers'
 import { ElectronNotificationService } from './notification/notifier'
@@ -27,6 +32,7 @@ const tracker = new UsageTracker({
     emitUsageUpdate: (payload: UsageUpdatePayload) => sendToRenderer(IPC_CHANNELS.USAGE_UPDATE, payload),
     emitNotificationSent: (payload: NotificationHistory) =>
       sendToRenderer(IPC_CHANNELS.NOTIFICATION_SENT, payload),
+    emitAppBlocked: (payload: BlockedAppHistory) => sendToRenderer(IPC_CHANNELS.APP_BLOCKED, payload),
     emitTrackingStatus: (payload: TrackingStatusPayload) =>
       sendToRenderer(IPC_CHANNELS.TRACKING_STATUS, payload)
   }

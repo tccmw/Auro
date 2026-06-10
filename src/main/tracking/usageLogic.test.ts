@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackedApp } from '../../shared/types'
 import {
+  createBlockedAppHistory,
   createNotificationHistory,
+  hasBlockedAppBeenRecorded,
   hasNotificationBeenSent,
   incrementUsageSeconds,
+  isAppLockedForDate,
   isLimitReached,
   shouldSendLimitNotification
 } from './usageLogic'
@@ -27,6 +30,11 @@ describe('usageLogic', () => {
   it('checks daily limits in seconds', () => {
     expect(isLimitReached(app, 59)).toBe(false)
     expect(isLimitReached(app, 60)).toBe(true)
+  })
+
+  it('checks locked state by app, date, and usage', () => {
+    expect(isAppLockedForDate(app, { '2026-06-02': { chrome: 60 } }, '2026-06-02')).toBe(true)
+    expect(isAppLockedForDate(app, { '2026-06-02': { chrome: 60 } }, '2026-06-03')).toBe(false)
   })
 
   it('guards duplicate notifications by app and date', () => {
@@ -59,6 +67,27 @@ describe('usageLogic', () => {
       date: '2026-06-02',
       sentAt: '2026-06-02T01:00:00.000Z'
     })
+  })
+
+  it('creates block history and detects duplicate block records by app and date', () => {
+    const blockedApp = createBlockedAppHistory(
+      app,
+      '2026-06-02',
+      60,
+      new Date('2026-06-02T01:00:00.000Z')
+    )
+
+    expect(blockedApp).toEqual({
+      id: 'blocked:chrome:2026-06-02',
+      appId: 'chrome',
+      appName: 'Chrome',
+      date: '2026-06-02',
+      blockedAt: '2026-06-02T01:00:00.000Z',
+      processName: 'chrome.exe',
+      usageSeconds: 60
+    })
+    expect(hasBlockedAppBeenRecorded([blockedApp], 'chrome', '2026-06-02')).toBe(true)
+    expect(hasBlockedAppBeenRecorded([blockedApp], 'chrome', '2026-06-03')).toBe(false)
   })
 
   it('respects global and per-app notification toggles', () => {

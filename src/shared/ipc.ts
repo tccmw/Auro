@@ -3,6 +3,7 @@ export const IPC_CHANNELS = {
   SETTINGS_UPDATE: 'settings:update',
   USAGE_UPDATE: 'usage:update',
   NOTIFICATION_SENT: 'notification:sent',
+  APP_BLOCKED: 'app:block',
   TRACKING_STATUS: 'tracking:status'
 } as const
 

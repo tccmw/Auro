@@ -30,13 +30,36 @@ describe('persistedState', () => {
         trackedApps: [{ id: 'bad', name: 1 }],
         usageTimes: { '2026-06-02': { chrome: '12', broken: 'nope' } },
         settings: { trackingIntervalMs: -1 },
-        notifications: [{ id: 'n1', appId: 'chrome', appName: 'Chrome', date: '2026-06-02', sentAt: 'x' }]
+        notifications: [{ id: 'n1', appId: 'chrome', appName: 'Chrome', date: '2026-06-02', sentAt: 'x' }],
+        blockedApps: [
+          {
+            id: 'blocked:chrome:2026-06-02',
+            appId: 'chrome',
+            appName: 'Chrome',
+            date: '2026-06-02',
+            blockedAt: '2026-06-02T01:00:00.000Z',
+            processName: 'chrome.exe',
+            usageSeconds: '61.8'
+          },
+          { id: 'bad' }
+        ]
       })
     ).toEqual({
       trackedApps: [],
       usageTimes: { '2026-06-02': { chrome: 12 } },
       settings: { trackingIntervalMs: 1000, notificationEnabled: true },
-      notifications: [{ id: 'n1', appId: 'chrome', appName: 'Chrome', date: '2026-06-02', sentAt: 'x' }]
+      notifications: [{ id: 'n1', appId: 'chrome', appName: 'Chrome', date: '2026-06-02', sentAt: 'x' }],
+      blockedApps: [
+        {
+          id: 'blocked:chrome:2026-06-02',
+          appId: 'chrome',
+          appName: 'Chrome',
+          date: '2026-06-02',
+          blockedAt: '2026-06-02T01:00:00.000Z',
+          processName: 'chrome.exe',
+          usageSeconds: 61
+        }
+      ]
     })
   })
 
@@ -72,7 +95,8 @@ describe('persistedState', () => {
         trackedApps: [],
         usageTimes: {},
         settings: { trackingIntervalMs: 1000, notificationEnabled: true },
-        notifications: []
+        notifications: [],
+        blockedApps: []
       },
       version: 1
     })
@@ -84,7 +108,8 @@ describe('persistedState', () => {
         trackedApps: [],
         usageTimes: {},
         settings: { trackingIntervalMs: 1000, notificationEnabled: true },
-        notifications: []
+        notifications: [],
+        blockedApps: []
       },
       version: 1
     })
