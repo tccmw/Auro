@@ -28,6 +28,25 @@ foreach ($dir in $shortcutDirs) {
     } catch {}
   }
 }
+$windowsAppsDir = Join-Path $env:LOCALAPPDATA 'Microsoft\\WindowsApps'
+if ($windowsAppsDir -and (Test-Path $windowsAppsDir)) {
+  Get-ChildItem -Path $windowsAppsDir -Filter *.exe -File -ErrorAction SilentlyContinue | ForEach-Object {
+    $items += [PSCustomObject]@{
+      source = 'windows-apps'
+      name = [IO.Path]::GetFileNameWithoutExtension($_.Name)
+      executablePath = $_.FullName
+    }
+  }
+}
+if (Get-Command Get-StartApps -ErrorAction SilentlyContinue) {
+  Get-StartApps | Where-Object { $_.Name -and $_.AppID } | ForEach-Object {
+    $items += [PSCustomObject]@{
+      source = 'appsfolder'
+      name = $_.Name
+      appUserModelId = $_.AppID
+    }
+  }
+}
 $registryPaths = @(
   'HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
   'HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
@@ -39,6 +58,8 @@ Get-ItemProperty $registryPaths -ErrorAction SilentlyContinue | Where-Object { $
     name = $_.DisplayName
     displayIcon = $_.DisplayIcon
     publisher = $_.Publisher
+    installLocation = $_.InstallLocation
+    uninstallString = $_.UninstallString
   }
 }
 @($items) | ConvertTo-Json -Compress -Depth 3
@@ -57,9 +78,27 @@ interface RegistryRawEntry {
   name?: string
   displayIcon?: string
   publisher?: string
+  installLocation?: string
+  uninstallString?: string
 }
 
-type RawInstalledAppEntry = ShortcutRawEntry | RegistryRawEntry
+interface WindowsAppsRawEntry {
+  source: 'windows-apps'
+  name?: string
+  executablePath?: string
+}
+
+interface AppsfolderRawEntry {
+  source: 'appsfolder'
+  name?: string
+  appUserModelId?: string
+}
+
+type RawInstalledAppEntry =
+  | ShortcutRawEntry
+  | RegistryRawEntry
+  | WindowsAppsRawEntry
+  | AppsfolderRawEntry
 
 export interface InstalledAppProvider {
   listInstalledApps: () => Promise<InstalledAppCandidate[]>
@@ -104,9 +143,104 @@ export function extractExecutablePath(value: string | null | undefined): string 
   return unquotedMatch?.[1]?.trim() ?? null
 }
 
+export function extractIconPath(value: string | null | undefined): string | null {
+  if (!value) {
+    return null
+  }
+
+  const trimmed = value.trim()
+  const quotedMatch = trimmed.match(/"([^"]+\.(?:exe|ico))"/i)
+
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1]
+  }
+
+  const unquotedMatch = trimmed.match(/^(.+?\.(?:exe|ico))(?:,.*)?$/i)
+
+  return unquotedMatch?.[1]?.trim() ?? null
+}
+
 export function isInstallerLikeExecutable(executablePath: string): boolean {
   const processName = normalizeProcessName(executablePath)
   return INSTALLER_EXECUTABLE_TERMS.some((term) => processName.includes(term))
+}
+
+export function extractProcessStartExecutable(argumentsValue: string | null | undefined): string | null {
+  if (!argumentsValue) {
+    return null
+  }
+
+  const processStartMatch = argumentsValue.match(
+    /(?:^|\s)--processStart\s+(?:"([^"]+\.exe)"|([^\s"]+\.exe))/i
+  )
+
+  return processStartMatch?.[1] ?? processStartMatch?.[2] ?? null
+}
+
+function trimOrUndefined(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed || undefined
+}
+
+function createCandidateId(input: {
+  source: InstalledAppSource
+  name: string
+  publisher?: string
+  executablePath?: string
+  processName?: string
+  appUserModelId?: string
+}): string {
+  if (input.executablePath) {
+    const normalizedPath = normalizeExecutablePath(input.executablePath)
+
+    return input.processName && normalizeProcessName(input.executablePath) !== input.processName
+      ? `${normalizedPath}::${input.processName}`
+      : normalizedPath
+  }
+
+  return [input.source, input.name, input.publisher, input.appUserModelId]
+    .map((part) => part?.trim().toLowerCase())
+    .filter(Boolean)
+    .join(':')
+}
+
+function createUntrackableCandidate(input: {
+  name: string | undefined
+  source: InstalledAppSource
+  reason: string
+  publisher?: string
+  executablePath?: string | null
+  iconPath?: string | null
+  appUserModelId?: string
+}): InstalledAppCandidate | null {
+  const name = trimOrUndefined(input.name)
+
+  if (!name) {
+    return null
+  }
+
+  const executablePath = isWindowsExecutablePath(input.executablePath)
+    ? input.executablePath.trim().replace(/^"|"$/g, '')
+    : undefined
+  const publisher = trimOrUndefined(input.publisher)
+  const appUserModelId = trimOrUndefined(input.appUserModelId)
+
+  return {
+    id: createCandidateId({
+      source: input.source,
+      name,
+      publisher,
+      executablePath,
+      appUserModelId
+    }),
+    name,
+    executablePath,
+    source: input.source,
+    trackable: false,
+    reason: input.reason,
+    publisher,
+    iconPath: trimOrUndefined(input.iconPath)
+  }
 }
 
 function createCandidate(input: {
@@ -115,43 +249,86 @@ function createCandidate(input: {
   source: InstalledAppSource
   publisher?: string
   iconPath?: string | null
+  processName?: string | null
 }): InstalledAppCandidate | null {
-  if (!input.name?.trim() || !isWindowsExecutablePath(input.executablePath)) {
+  const name = trimOrUndefined(input.name)
+
+  if (!name) {
     return null
   }
 
-  if (isInstallerLikeExecutable(input.executablePath)) {
-    return null
+  if (!isWindowsExecutablePath(input.executablePath)) {
+    return createUntrackableCandidate({
+      name,
+      executablePath: input.executablePath,
+      source: input.source,
+      publisher: input.publisher,
+      iconPath: input.iconPath,
+      reason: '프로세스 이름 확인 필요'
+    })
   }
 
   const executablePath = input.executablePath.trim().replace(/^"|"$/g, '')
-  const processName = normalizeProcessName(executablePath)
+  const processName = normalizeProcessName(input.processName ?? executablePath)
 
   if (!processName) {
-    return null
+    return createUntrackableCandidate({
+      name,
+      executablePath,
+      source: input.source,
+      publisher: input.publisher,
+      iconPath: input.iconPath,
+      reason: '프로세스 이름 확인 필요'
+    })
+  }
+
+  if (!input.processName && isInstallerLikeExecutable(executablePath)) {
+    return createUntrackableCandidate({
+      name,
+      executablePath,
+      source: input.source,
+      publisher: input.publisher,
+      iconPath: input.iconPath,
+      reason: '설치/업데이트 실행 파일은 추적할 수 없음'
+    })
   }
 
   return {
-    id: normalizeExecutablePath(executablePath),
-    name: input.name.trim(),
+    id: createCandidateId({
+      source: input.source,
+      name,
+      publisher: input.publisher,
+      executablePath,
+      processName
+    }),
+    name,
     processName,
     executablePath,
     source: input.source,
-    publisher: input.publisher?.trim() || undefined,
-    iconPath: input.iconPath?.trim() || undefined
+    trackable: true,
+    publisher: trimOrUndefined(input.publisher),
+    iconPath: trimOrUndefined(input.iconPath)
   }
 }
 
 export function createShortcutCandidate(entry: ShortcutRawEntry): InstalledAppCandidate | null {
   if (entry.arguments && /shell:|appsfolder/i.test(entry.arguments)) {
-    return null
+    return createUntrackableCandidate({
+      name: entry.name,
+      source: 'appsfolder',
+      iconPath: extractIconPath(entry.iconLocation),
+      reason: 'Microsoft Store 앱은 프로세스 이름 확인 필요'
+    })
   }
+
+  const processStartExecutable = extractProcessStartExecutable(entry.arguments)
 
   return createCandidate({
     name: entry.name,
     executablePath: entry.targetPath ?? null,
     source: 'start-menu',
-    iconPath: extractExecutablePath(entry.iconLocation)
+    iconPath: extractIconPath(entry.iconLocation),
+    processName: processStartExecutable
   })
 }
 
@@ -163,25 +340,69 @@ export function createRegistryCandidate(entry: RegistryRawEntry): InstalledAppCa
     executablePath,
     source: 'registry',
     publisher: entry.publisher,
-    iconPath: executablePath
+    iconPath: extractIconPath(entry.displayIcon) ?? executablePath
   })
+}
+
+export function createWindowsAppsCandidate(entry: WindowsAppsRawEntry): InstalledAppCandidate | null {
+  return createCandidate({
+    name: entry.name,
+    executablePath: entry.executablePath ?? null,
+    source: 'windows-apps',
+    iconPath: entry.executablePath
+  })
+}
+
+export function createAppsfolderCandidate(entry: AppsfolderRawEntry): InstalledAppCandidate | null {
+  return createUntrackableCandidate({
+    name: entry.name,
+    source: 'appsfolder',
+    reason: 'Microsoft Store 앱은 프로세스 이름 확인 필요',
+    appUserModelId: entry.appUserModelId
+  })
+}
+
+const SOURCE_PRIORITY: Record<InstalledAppSource, number> = {
+  'start-menu': 0,
+  'windows-apps': 1,
+  registry: 2,
+  appsfolder: 3
+}
+
+function getDedupeKey(candidate: InstalledAppCandidate): string {
+  if (candidate.executablePath) {
+    return `path:${normalizeExecutablePath(candidate.executablePath)}`
+  }
+
+  return `metadata:${candidate.name.trim().toLowerCase()}:${candidate.publisher?.trim().toLowerCase() ?? ''}`
+}
+
+function shouldReplaceCandidate(
+  existing: InstalledAppCandidate,
+  candidate: InstalledAppCandidate
+): boolean {
+  if (existing.trackable !== candidate.trackable) {
+    return candidate.trackable
+  }
+
+  return SOURCE_PRIORITY[candidate.source] < SOURCE_PRIORITY[existing.source]
 }
 
 export function dedupeInstalledAppCandidates(
   candidates: InstalledAppCandidate[]
 ): InstalledAppCandidate[] {
-  const byExecutablePath = new Map<string, InstalledAppCandidate>()
+  const byDedupeKey = new Map<string, InstalledAppCandidate>()
 
   for (const candidate of candidates) {
-    const key = normalizeExecutablePath(candidate.executablePath)
-    const existing = byExecutablePath.get(key)
+    const key = getDedupeKey(candidate)
+    const existing = byDedupeKey.get(key)
 
-    if (!existing || (existing.source === 'registry' && candidate.source === 'start-menu')) {
-      byExecutablePath.set(key, candidate)
+    if (!existing || shouldReplaceCandidate(existing, candidate)) {
+      byDedupeKey.set(key, candidate)
     }
   }
 
-  return Array.from(byExecutablePath.values()).sort((left, right) =>
+  return Array.from(byDedupeKey.values()).sort((left, right) =>
     left.name.localeCompare(right.name, 'ko-KR', { sensitivity: 'base' })
   )
 }
@@ -192,8 +413,14 @@ export async function attachIconDataUrls(
 ): Promise<InstalledAppCandidate[]> {
   return Promise.all(
     candidates.map(async (candidate) => {
+      const iconPath = candidate.iconPath ?? candidate.executablePath
+
+      if (!iconPath) {
+        return candidate
+      }
+
       try {
-        const icon = await loadFileIcon(candidate.executablePath, { size: 'normal' })
+        const icon = await loadFileIcon(iconPath, { size: 'normal' })
 
         if (icon.isEmpty?.()) {
           return candidate
@@ -238,9 +465,19 @@ export class WindowsInstalledAppAdapter implements InstalledAppProvider {
 
     const parsed = stdout.trim() ? JSON.parse(stdout) : []
     const candidates = toArray(parsed)
-      .map((entry) =>
-        entry.source === 'start-menu' ? createShortcutCandidate(entry) : createRegistryCandidate(entry)
-      )
+      .map((entry) => {
+        switch (entry.source) {
+          case 'start-menu':
+            return createShortcutCandidate(entry)
+          case 'windows-apps':
+            return createWindowsAppsCandidate(entry)
+          case 'appsfolder':
+            return createAppsfolderCandidate(entry)
+          case 'registry':
+          default:
+            return createRegistryCandidate(entry)
+        }
+      })
       .filter((candidate): candidate is InstalledAppCandidate => candidate !== null)
 
     const dedupedCandidates = dedupeInstalledAppCandidates(candidates)

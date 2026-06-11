@@ -9,14 +9,16 @@ export interface TrackedApp {
   iconDataUrl?: string
 }
 
-export type InstalledAppSource = 'start-menu' | 'registry'
+export type InstalledAppSource = 'start-menu' | 'registry' | 'windows-apps' | 'appsfolder'
 
 export interface InstalledAppCandidate {
   id: string
   name: string
-  processName: string
-  executablePath: string
+  processName?: string
+  executablePath?: string
   source: InstalledAppSource
+  trackable: boolean
+  reason?: string
   publisher?: string
   iconPath?: string
   iconDataUrl?: string
