@@ -38,7 +38,21 @@ function getSourceLabel(
     return '추가 예정'
   }
 
-  return candidate.source === 'start-menu' ? '시작 메뉴' : '설치 목록'
+  if (!candidate.trackable) {
+    return '추적 정보 필요'
+  }
+
+  switch (candidate.source) {
+    case 'start-menu':
+      return '시작 메뉴'
+    case 'windows-apps':
+      return 'WindowsApps'
+    case 'appsfolder':
+      return 'Microsoft Store'
+    case 'registry':
+    default:
+      return '설치 목록'
+  }
 }
 
 export function InstalledAppPicker({
@@ -105,7 +119,7 @@ export function InstalledAppPicker({
     registeredApp?: TrackedApp,
     locked = false
   ): void => {
-    if (locked) {
+    if (locked || !candidate.trackable) {
       return
     }
 
@@ -199,9 +213,10 @@ export function InstalledAppPicker({
             const locked = registeredApp
               ? isAppLockedForDate(registeredApp, usageTimes, today)
               : false
-            const pending = !registeredApp && selectedIds.has(candidate.id)
+            const pending = !registeredApp && candidate.trackable && selectedIds.has(candidate.id)
             const checked = Boolean(registeredApp) || pending
             const icon = getCandidateIconPresentation(candidate)
+            const disabled = locked || !candidate.trackable
 
             return (
               <label
@@ -209,17 +224,24 @@ export function InstalledAppPicker({
                   'candidate-row',
                   registeredApp ? 'registered' : '',
                   pending ? 'pending' : '',
-                  locked ? 'locked' : ''
+                  locked ? 'locked' : '',
+                  !candidate.trackable ? 'untrackable' : ''
                 ]
                   .filter(Boolean)
                   .join(' ')}
                 key={candidate.id}
-                title={locked ? '오늘 제한 시간을 초과해 내일까지 삭제/수정할 수 없습니다.' : undefined}
+                title={
+                  locked
+                    ? '오늘 제한 시간을 초과해 내일까지 삭제/수정할 수 없습니다.'
+                    : candidate.trackable
+                      ? undefined
+                      : candidate.reason
+                }
               >
                 <input
                   type="checkbox"
                   checked={checked}
-                  disabled={locked}
+                  disabled={disabled}
                   onChange={() => toggleCandidate(candidate, registeredApp, locked)}
                 />
                 <span className={icon.type === 'image' ? 'candidate-avatar image' : 'candidate-avatar'}>
@@ -228,7 +250,7 @@ export function InstalledAppPicker({
                 <span className="candidate-body">
                   <strong>{candidate.name}</strong>
                   <small>
-                    {candidate.processName}
+                    {candidate.processName ?? candidate.reason ?? '프로세스 이름 확인 필요'}
                     {candidate.publisher ? ` · ${candidate.publisher}` : ''}
                   </small>
                 </span>

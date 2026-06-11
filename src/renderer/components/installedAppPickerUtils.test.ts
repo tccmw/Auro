@@ -16,6 +16,7 @@ const candidates: InstalledAppCandidate[] = [
     processName: 'figma',
     executablePath: 'C:\\Figma\\Figma.exe',
     source: 'start-menu',
+    trackable: true,
     publisher: 'Figma'
   },
   {
@@ -24,7 +25,16 @@ const candidates: InstalledAppCandidate[] = [
     processName: 'notion',
     executablePath: 'C:\\Notion\\Notion.exe',
     source: 'registry',
+    trackable: true,
     publisher: 'Notion Labs'
+  },
+  {
+    id: 'runtime',
+    name: 'Runtime Component',
+    source: 'registry',
+    trackable: false,
+    publisher: 'Runtime Publisher',
+    reason: '프로세스 이름 확인 필요'
   }
 ]
 
@@ -42,6 +52,7 @@ describe('installedAppPickerUtils', () => {
   it('filters candidates by name, process, publisher, or executable path', () => {
     expect(filterInstalledAppCandidates(candidates, 'labs')).toEqual([candidates[1]])
     expect(filterInstalledAppCandidates(candidates, 'figma.exe')).toEqual([candidates[0]])
+    expect(filterInstalledAppCandidates(candidates, '확인 필요')).toEqual([candidates[2]])
   })
 
   it('detects already registered candidates by normalized process name', () => {
@@ -68,16 +79,21 @@ describe('installedAppPickerUtils', () => {
       name: 'Chrome',
       processName: 'chrome',
       executablePath: 'C:\\Chrome\\chrome.exe',
-      source: 'start-menu'
+      source: 'start-menu',
+      trackable: true
     }
 
     expect(
-      sortInstalledAppCandidates([chromeCandidate, candidates[1], candidates[0]], trackedApps, selectedIds)
+      sortInstalledAppCandidates(
+        [candidates[2], chromeCandidate, candidates[1], candidates[0]],
+        trackedApps,
+        selectedIds
+      )
         .map((candidate) => candidate.id)
-    ).toEqual(['figma', 'notion', 'chrome'])
+    ).toEqual(['figma', 'notion', 'chrome', 'runtime'])
   })
 
-  it('converts only unregistered selected candidates to tracked app inputs', () => {
+  it('converts only unregistered and trackable selected candidates to tracked app inputs', () => {
     expect(toTrackedAppInputs(candidates, trackedApps, 45, false)).toEqual([
       {
         name: 'Notion',

@@ -1242,6 +1242,12 @@ button:disabled {
   border-color: #fecdd3;
 }
 
+.candidate-row.untrackable {
+  color: #64748b;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
 .candidate-row input[type='checkbox'] {
   width: 18px;
   min-height: 18px;
@@ -1310,6 +1316,12 @@ button:disabled {
   color: #be123c;
   background: #ffffff;
   border-color: #fecdd3;
+}
+
+.candidate-row.untrackable .candidate-source {
+  color: #475569;
+  background: #ffffff;
+  border-color: #cbd5e1;
 }
 
 .advanced-manual summary {

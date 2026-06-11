@@ -24,7 +24,14 @@ export function filterInstalledAppCandidates(
   }
 
   return candidates.filter((candidate) => {
-    return [candidate.name, candidate.processName, candidate.publisher ?? '', candidate.executablePath]
+    return [
+      candidate.name,
+      candidate.processName ?? '',
+      candidate.publisher ?? '',
+      candidate.executablePath ?? '',
+      candidate.source,
+      candidate.reason ?? ''
+    ]
       .join(' ')
       .toLowerCase()
       .includes(normalizedQuery)
@@ -35,6 +42,10 @@ export function getRegisteredAppForCandidate(
   candidate: InstalledAppCandidate,
   trackedApps: TrackedApp[]
 ): TrackedApp | undefined {
+  if (!candidate.processName) {
+    return undefined
+  }
+
   const candidateProcessName = normalizeProcessName(candidate.processName)
 
   return trackedApps.find((app) => normalizeProcessName(app.processName) === candidateProcessName)
@@ -61,7 +72,7 @@ export function sortInstalledAppCandidates(
       return 1
     }
 
-    return 2
+    return candidate.trackable ? 2 : 3
   }
 
   return [...candidates].sort((left, right) => {
@@ -82,11 +93,11 @@ export function toTrackedAppInputs(
   notificationEnabled: boolean
 ): TrackedAppInput[] {
   return candidates
-    .filter((candidate) => !isCandidateRegistered(candidate, trackedApps))
+    .filter((candidate) => candidate.trackable && candidate.processName && !isCandidateRegistered(candidate, trackedApps))
     .map((candidate) => {
       const input: TrackedAppInput = {
         name: candidate.name,
-        processName: candidate.processName,
+        processName: candidate.processName!,
         dailyLimitMinutes,
         notificationEnabled
       }
