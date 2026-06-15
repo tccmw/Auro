@@ -1,10 +1,12 @@
-import { AlertTriangle, Bell, Clock, ListChecks, Plus } from 'lucide-react'
+import { AlertTriangle, Bell, CheckCircle2, Clock, ListChecks, Plus, Sparkles, WandSparkles } from 'lucide-react'
 import { useState } from 'react'
 import { getLocalDateKey } from '../../shared/date'
 import type { BlockedAppHistory, NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
 import {
   formatDuration,
+  getAiUsageInsight,
   getExceededAppCount,
+  getSmartLimitRecommendations,
   getTodayNotificationCount,
   getTotalUsageSeconds,
   getTrackedAppUsageSummaries
@@ -25,6 +27,7 @@ interface UsageDashboardProps {
   onOpenSettings: () => void
   onOpenUsage: () => void
   onOpenEvents: () => void
+  onApplyLimitRecommendation: (appId: string, dailyLimitMinutes: number) => void
 }
 
 const EVENT_FILTERS: LimitEventFilter[] = ['all', 'notification', 'blocked']
@@ -44,7 +47,8 @@ export function UsageDashboard({
   blockedApps,
   onOpenSettings,
   onOpenUsage,
-  onOpenEvents
+  onOpenEvents,
+  onApplyLimitRecommendation
 }: UsageDashboardProps) {
   const [eventFilter, setEventFilter] = useState<LimitEventFilter>('all')
   const today = getLocalDateKey()
@@ -60,6 +64,8 @@ export function UsageDashboard({
     eventFilter
   ).slice(0, 5)
   const maxUsageSeconds = Math.max(1, ...summaries.map((summary) => summary.usageSeconds))
+  const aiInsight = getAiUsageInsight(trackedApps, usageTimes, today)
+  const limitRecommendations = getSmartLimitRecommendations(trackedApps, usageTimes, today).slice(0, 3)
 
   const metrics = [
     {
@@ -105,6 +111,73 @@ export function UsageDashboard({
             </article>
           )
         })}
+      </div>
+
+      <div className="ai-dashboard-grid">
+        <section className={`focus-panel ai-insight-panel ${aiInsight.tone}`}>
+          <div className="ai-panel-head">
+            <span className="ai-panel-icon">
+              <Sparkles size={19} />
+            </span>
+            <div>
+              <p className="eyebrow">AI 인사이트</p>
+              <h2>{aiInsight.title}</h2>
+            </div>
+          </div>
+          <p className="ai-insight-summary">{aiInsight.summary}</p>
+          <p className="ai-insight-detail">{aiInsight.detail}</p>
+        </section>
+
+        <section className="focus-panel smart-limit-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">AI 추천</p>
+              <h2>스마트 제한 추천</h2>
+            </div>
+            <WandSparkles size={19} />
+          </div>
+
+          {limitRecommendations.length === 0 ? (
+            <div className="empty-state compact">
+              최근 사용 패턴과 현재 제한이 크게 어긋나지 않습니다.
+            </div>
+          ) : (
+            <div className="smart-limit-list">
+              {limitRecommendations.map((recommendation) => {
+                const limitLocked =
+                  recommendation.todayUsageSeconds >= recommendation.currentLimitMinutes * 60
+
+                return (
+                  <article className="smart-limit-row" key={recommendation.app.id}>
+                    <div className="smart-limit-main">
+                      <strong>{recommendation.app.name}</strong>
+                      <span>{recommendation.reason}</span>
+                    </div>
+                    <div className="smart-limit-values">
+                      <span>{recommendation.currentLimitMinutes}분</span>
+                      <strong>{recommendation.recommendedLimitMinutes}분</strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="primary-button compact-button"
+                      disabled={limitLocked}
+                      title={limitLocked ? '오늘 제한을 이미 넘은 앱은 내일까지 변경할 수 없습니다.' : '추천 제한 적용'}
+                      onClick={() =>
+                        onApplyLimitRecommendation(
+                          recommendation.app.id,
+                          recommendation.recommendedLimitMinutes
+                        )
+                      }
+                    >
+                      <CheckCircle2 size={15} />
+                      <span>적용</span>
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </div>
 
       <div className="focus-layout">

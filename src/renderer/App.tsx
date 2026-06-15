@@ -116,6 +116,9 @@ export default function App() {
             onOpenSettings={() => setViewMode('settings')}
             onOpenUsage={() => setViewMode('usage')}
             onOpenEvents={() => setViewMode('events')}
+            onApplyLimitRecommendation={(appId, dailyLimitMinutes) =>
+              updateTrackedApp(appId, { dailyLimitMinutes })
+            }
           />
 
           <section className="app-section">
