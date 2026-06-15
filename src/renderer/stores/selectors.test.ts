@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { NotificationHistory, TrackedApp, UsageTimes } from '../../shared/types'
 import {
   formatDuration,
+  getAiUsageInsight,
   getMonthDateKeys,
   getExceededAppCount,
+  getRecentDateKeys,
+  getSmartLimitRecommendations,
   getTodayNotificationCount,
   getTopUsedAppSummary,
   getTrackedAppUsageSummaries,
@@ -119,6 +122,14 @@ describe('selectors', () => {
     expect(monthKeys).toHaveLength(30)
   })
 
+  it('creates recent date keys ending on the selected date', () => {
+    expect(getRecentDateKeys('2026-06-10', 3)).toEqual([
+      '2026-06-08',
+      '2026-06-09',
+      '2026-06-10'
+    ])
+  })
+
   it('aggregates usage across a date range by app and day', () => {
     const report = getUsageRangeReport(apps, usageTimes, ['2026-06-08', '2026-06-09'])
 
@@ -146,5 +157,46 @@ describe('selectors', () => {
         averageDailySeconds: 900
       }
     ])
+  })
+
+  it('recommends smart daily limits from recent active usage', () => {
+    const recommendationUsage: UsageTimes = {
+      '2026-06-08': {
+        code: 1800,
+        browser: 3600
+      },
+      '2026-06-09': {
+        code: 1800,
+        browser: 3600
+      },
+      '2026-06-10': {
+        code: 1800,
+        browser: 3600
+      }
+    }
+    const recommendations = getSmartLimitRecommendations(apps, recommendationUsage, '2026-06-10')
+    const codeRecommendation = recommendations.find((recommendation) => recommendation.app.id === 'code')
+    const browserRecommendation = recommendations.find(
+      (recommendation) => recommendation.app.id === 'browser'
+    )
+
+    expect(codeRecommendation).toMatchObject({
+      currentLimitMinutes: 60,
+      recommendedLimitMinutes: 35,
+      direction: 'decrease',
+      confidence: 'medium'
+    })
+    expect(browserRecommendation).toMatchObject({
+      currentLimitMinutes: 30,
+      recommendedLimitMinutes: 60,
+      direction: 'increase',
+      confidence: 'medium'
+    })
+  })
+
+  it('returns a critical AI insight when a limit is exceeded', () => {
+    expect(getAiUsageInsight(apps, usageTimes, '2026-06-08')).toMatchObject({
+      tone: 'critical'
+    })
   })
 })
